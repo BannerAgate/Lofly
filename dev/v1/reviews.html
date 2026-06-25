@@ -104,7 +104,10 @@
         <div class="review-text-box" id="modalReviewText">—</div>
       </div>
       <div>
-        <div class="review-section-label">AI-suggestie</div>
+        <div class="review-section-label" style="display:flex;justify-content:space-between;align-items:center">
+          <span>AI-suggestie</span>
+          <button class="btn btn-secondary btn-sm" id="generateAIBtn" onclick="generateAISuggestion()" style="font-size:12px;padding:4px 10px">✨ Genereer</button>
+        </div>
         <div class="review-text-box" id="modalAIResponse" style="color:#4b5563">—</div>
       </div>
     </div>
@@ -379,6 +382,101 @@ async function postReview() {
     showToast('Worker niet beschikbaar. Review goedgekeurd maar nog niet geplaatst.', 'info');
     await updateReviewStatus('approved');
   }
+}
+
+// ============================================================
+// AI suggestie genereren
+// ============================================================
+async function generateAISuggestion() {
+  if (!currentReviewId) return;
+  const r = allReviews.find(x => x.id === currentReviewId);
+  if (!r) return;
+
+  const btn = document.getElementById('generateAIBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Genereren...';
+
+  // Probeer de Worker eerst
+  const workerConfigured = !WORKERS_BASE_URL.includes('YOUR_ACCOUNT');
+  if (workerConfigured) {
+    try {
+      const resp = await fetch(`${WORKERS_BASE_URL}/generate-response`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ review_id: currentReviewId })
+      });
+      const data = await resp.json();
+      if (data.ai_response) {
+        document.getElementById('modalAIResponse').textContent = data.ai_response;
+        document.getElementById('modalFinalResponse').value = data.ai_response;
+        btn.textContent = '✨ Genereer';
+        btn.disabled = false;
+        return;
+      }
+    } catch (e) { /* valt terug op lokale generatie */ }
+  }
+
+  // Worker niet beschikbaar — genereer lokaal via Supabase + Claude API key
+  try {
+    // Haal API key + prompt op uit org-instellingen
+    const { data: org } = await getSupabase()
+      .from('organizations')
+      .select('claude_api_key, claude_ai_prompt')
+      .eq('id', profile.organization_id)
+      .single();
+
+    if (!org?.claude_api_key) {
+      showToast('Vul eerst een Claude API key in via Instellingen → AI', 'error');
+      btn.textContent = '✨ Genereer'; btn.disabled = false;
+      return;
+    }
+
+    const systemPrompt = org.claude_ai_prompt || 'Je bent een vriendelijke klantenservice medewerker. Beantwoord reviews professioneel in het Nederlands.';
+    const userMsg = `Schrijf een professionele reactie op deze klantreview (${r.star_rating} sterren):\n\n"${r.review_text}"\n\nHoud het kort (2-4 zinnen), vriendelijk en persoonlijk. Geef alleen de reactietekst terug, geen uitleg.`;
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': org.claude_api_key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-8',
+        max_tokens: 300,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMsg }]
+      })
+    });
+
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error.message);
+
+    const aiText = data.content?.[0]?.text || '';
+    if (!aiText) throw new Error('Geen reactie ontvangen');
+
+    // Sla op in Supabase
+    await getSupabase()
+      .from('reviews')
+      .update({ ai_response: aiText, updated_at: new Date().toISOString() })
+      .eq('id', currentReviewId);
+
+    // Update UI
+    document.getElementById('modalAIResponse').textContent = aiText;
+    document.getElementById('modalFinalResponse').value = aiText;
+
+    // Update lokale cache
+    const idx = allReviews.findIndex(x => x.id === currentReviewId);
+    if (idx !== -1) allReviews[idx].ai_response = aiText;
+
+    showToast('AI reactie gegenereerd!', 'success');
+  } catch (err) {
+    showToast('Fout: ' + err.message, 'error');
+  }
+
+  btn.textContent = '✨ Genereer';
+  btn.disabled = false;
 }
 
 // ============================================================
