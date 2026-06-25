@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lofly — Medewerker detail</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="css/lofly.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
@@ -290,68 +291,4 @@ function renderStarsChart() {
   new Chart(document.getElementById('chartStars').getContext('2d'), {
     type: 'bar',
     data: {
-      labels: ['1★','2★','3★','4★','5★'],
-      datasets: [{
-        data: counts,
-        backgroundColor: ['#fee2e2','#fecaca','#fde68a','#bbf7d0','#6ee7b7'],
-        borderWidth: 0,
-        borderRadius: 4,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
-    }
-  });
-}
-
-function renderReviewsTable() {
-  const tbody = document.getElementById('reviewsBody');
-  if (!empReviews.length) {
-    tbody.innerHTML = `
-      <tr><td colspan="5">
-        <div class="empty-state">
-          <div class="empty-state-icon">📭</div>
-          <div class="empty-state-title">Geen reviews gekoppeld</div>
-          <div class="empty-state-sub">Reviews worden hier getoond wanneer ze aan deze medewerker worden gekoppeld.</div>
-        </div>
-      </td></tr>`;
-    return;
-  }
-  tbody.innerHTML = empReviews.map(r => `
-    <tr>
-      <td style="color:#6b7280;white-space:nowrap">${formatDate(r.review_date)}</td>
-      <td class="font-semibold">${escHtml(r.reviewer_name || 'Anoniem')}</td>
-      <td>${getSourceBadge(r.source)}</td>
-      <td>${renderStars(r.star_rating)}</td>
-      <td>${getStatusBadge(r.status)}</td>
-    </tr>
-  `).join('');
-}
-
-function copyQRUrl() {
-  const url = `https://lofly-dev.pages.dev/dev/v1/redirect.html?qr=${emp.qr_code_id}`;
-  navigator.clipboard.writeText(url);
-  showToast('QR URL gekopieerd!');
-}
-
-function downloadQR() {
-  const container = document.getElementById('qrCanvas');
-  const canvas = container.querySelector('canvas');
-  if (!canvas) { showToast('QR code niet beschikbaar', 'error'); return; }
-  const link = document.createElement('a');
-  link.download = `qr-${emp.name.replace(/\s+/g,'-').toLowerCase()}.png`;
-  link.href = canvas.toDataURL();
-  link.click();
-}
-
-function escHtml(str) {
-  const d = document.createElement('div');
-  d.appendChild(document.createTextNode(str));
-  return d.innerHTML;
-}
-
-</script>
-</body>
-</html>
+      labels: ['1★','2★','3★','4★','5

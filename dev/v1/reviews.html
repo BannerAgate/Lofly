@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lofly — Reviews</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="css/lofly.css">
 </head>
 <body>
@@ -394,25 +395,4 @@ async function postReview() {
       source: r.source,
     });
 
-    showToast('Reactie verstuurd naar Make.com ✓', 'success');
-    closeModal();
-    fetchReviews();
-  } catch (err) {
-    showToast('Fout bij plaatsen: ' + err.message, 'error');
-    document.getElementById('postBtnText').textContent = 'Plaatsen';
-  }
-}
-
-// AI suggestie wordt automatisch gegenereerd via Make.com bij binnenkomst van een review.
-
-// ============================================================
-// Utility
-// ============================================================
-function escHtml(str) {
-  const d = document.createElement('div');
-  d.appendChild(document.createTextNode(str));
-  return d.innerHTML;
-}
-</script>
-</body>
-</html>
+    showToast('Reactie verstuurd naar Make.com

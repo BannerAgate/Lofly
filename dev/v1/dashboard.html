@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lofly — Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="css/lofly.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
@@ -310,29 +311,4 @@ function renderEmployeeTable(employees, reviews, scans) {
     const empScans = scans.filter(s => s.employee_id === emp.id);
     const empClicks = empScans.filter(s => s.button_clicked).length;
     const empReviews = reviews.filter(r => r.employee_id === emp.id);
-    const empAvg = empReviews.length
-      ? (empReviews.reduce((a, r) => a + r.star_rating, 0) / empReviews.length).toFixed(1)
-      : '—';
-    return { emp, scans: empScans.length, clicks: empClicks, reviews: empReviews.length, avg: empAvg };
-  }).sort((a, b) => b.scans - a.scans);
-
-  tbody.innerHTML = rows.map(row => `
-    <tr>
-      <td><a href="employee.html?id=${row.emp.id}" style="font-weight:600;color:#1a2335">${escHtml(row.emp.name)}</a></td>
-      <td>${row.scans}</td>
-      <td>${row.clicks}</td>
-      <td>${row.reviews}</td>
-      <td>${row.avg !== '—' ? `${row.avg} ★` : '—'}</td>
-    </tr>
-  `).join('');
-}
-
-function escHtml(str) {
-  const d = document.createElement('div');
-  d.appendChild(document.createTextNode(str));
-  return d.innerHTML;
-}
-
-</script>
-</body>
-</html>
+    const empAvg = empReviews.len
