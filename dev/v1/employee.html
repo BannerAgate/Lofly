@@ -6,7 +6,7 @@
   <title>Lofly — Medewerker detail</title>
   <link rel="stylesheet" href="css/lofly.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -169,7 +169,15 @@ async function loadEmployee() {
   const qrUrl = `https://lofly-dev.pages.dev/dev/v1/redirect.html?qr=${emp.qr_code_id}`;
   document.getElementById('qrCodeId').textContent = emp.qr_code_id.substring(0, 12) + '...';
   try {
-    await QRCode.toCanvas(document.getElementById('qrCanvas'), qrUrl, { width: 140, margin: 1 });
+    const qrContainer = document.getElementById('qrCanvas');
+    qrContainer.innerHTML = '';
+    new QRCode(qrContainer, {
+      text: qrUrl,
+      width: 140,
+      height: 140,
+      colorDark: '#1a2335',
+      colorLight: '#ffffff',
+    });
   } catch (qrErr) {
     console.error('QR genereren mislukt:', qrErr);
     document.getElementById('qrCanvas').insertAdjacentHTML('afterend',
@@ -275,7 +283,9 @@ function copyQRUrl() {
 }
 
 function downloadQR() {
-  const canvas = document.getElementById('qrCanvas');
+  const container = document.getElementById('qrCanvas');
+  const canvas = container.querySelector('canvas');
+  if (!canvas) { showToast('QR code niet beschikbaar', 'error'); return; }
   const link = document.createElement('a');
   link.download = `qr-${emp.name.replace(/\s+/g,'-').toLowerCase()}.png`;
   link.href = canvas.toDataURL();
