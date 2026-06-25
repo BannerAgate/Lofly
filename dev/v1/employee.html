@@ -8,76 +8,10 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <style>
-    /* ── Lofly Calendar ── */
-    .lf-cal-wrap { margin-bottom: 20px; }
-    .lf-cal { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
-    .lf-cal-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 14px 20px; border-bottom: 1px solid #e5e7eb;
+    .date-filter-label {
+      font-size: 12px; font-weight: 600; color: #6b7280;
+      display: block; margin-bottom: 3px;
     }
-    .lf-cal-title { font-size: 15px; font-weight: 700; color: #1a2335; }
-    .lf-cal-nav { display: flex; gap: 6px; }
-    .lf-cal-btn {
-      background: none; border: 1px solid #e5e7eb; border-radius: 6px;
-      width: 30px; height: 30px; cursor: pointer; font-size: 14px; color: #1a2335;
-      display: flex; align-items: center; justify-content: center; transition: background .15s;
-    }
-    .lf-cal-btn:hover { background: #f3f4f6; }
-    .lf-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
-    .lf-cal-dow {
-      text-align: center; font-size: 11px; font-weight: 600; color: #9ca3af;
-      padding: 8px 4px; text-transform: uppercase; letter-spacing: .05em;
-      border-bottom: 1px solid #f3f4f6;
-    }
-    .lf-cal-day {
-      position: relative; min-height: 52px; padding: 6px 8px;
-      border-right: 1px solid #f3f4f6; border-bottom: 1px solid #f3f4f6;
-      cursor: default; transition: background .12s;
-    }
-    .lf-cal-day:nth-child(7n) { border-right: none; }
-    .lf-cal-day.has-reviews { cursor: pointer; }
-    .lf-cal-day.has-reviews:hover { background: #fff7ed; }
-    .lf-cal-day.other-month { background: #fafafa; }
-    .lf-cal-day.today .lf-cal-daynum {
-      background: #1a2335; color: #fff; border-radius: 50%;
-      width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
-    }
-    .lf-cal-daynum { font-size: 13px; color: #374151; font-weight: 500; }
-    .lf-cal-day.other-month .lf-cal-daynum { color: #d1d5db; }
-    .lf-cal-badge {
-      position: absolute; bottom: 6px; right: 6px;
-      background: #F97316; color: #fff; border-radius: 10px;
-      font-size: 10px; font-weight: 700; min-width: 18px; height: 18px;
-      display: flex; align-items: center; justify-content: center; padding: 0 4px;
-    }
-    /* Popup */
-    .lf-cal-popup {
-      position: fixed; z-index: 9999; background: #fff;
-      border: 1px solid #e5e7eb; border-radius: 10px;
-      box-shadow: 0 8px 32px rgba(26,35,53,.15);
-      min-width: 260px; max-width: 320px; padding: 0;
-      pointer-events: auto;
-    }
-    .lf-cal-popup-header {
-      padding: 10px 14px; border-bottom: 1px solid #f3f4f6;
-      font-size: 13px; font-weight: 700; color: #1a2335;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .lf-cal-popup-close {
-      background: none; border: none; cursor: pointer;
-      font-size: 16px; color: #9ca3af; line-height: 1; padding: 0;
-    }
-    .lf-cal-popup-close:hover { color: #374151; }
-    .lf-cal-popup-list { max-height: 240px; overflow-y: auto; }
-    .lf-cal-popup-item {
-      display: flex; align-items: center; gap: 10px;
-      padding: 8px 14px; border-bottom: 1px solid #f9fafb; font-size: 12px;
-    }
-    .lf-cal-popup-item:last-child { border-bottom: none; }
-    .lf-cal-popup-name { font-weight: 600; color: #1a2335; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .lf-cal-popup-stars { color: #F97316; white-space: nowrap; font-size: 11px; }
-    .lf-cal-popup-status { white-space: nowrap; }
-    #lf-cal-overlay { position: fixed; inset: 0; z-index: 9998; }
   </style>
 </head>
 <body>
@@ -101,9 +35,21 @@
             <p class="page-subtitle" id="empFunction"></p>
           </div>
         </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-secondary btn-sm" onclick="downloadQR()">⬇ QR downloaden</button>
-          <button class="btn btn-secondary btn-sm" onclick="copyQRUrl()">⎘ QR URL kopiëren</button>
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-end">
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary btn-sm" onclick="downloadQR()">⬇ QR downloaden</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyQRUrl()">⎘ QR URL kopiëren</button>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-end">
+            <div>
+              <label class="date-filter-label" for="dateFrom">Van</label>
+              <input type="date" class="form-control" id="dateFrom" style="width:150px" onchange="applyDateFilter()">
+            </div>
+            <div>
+              <label class="date-filter-label" for="dateTo">Tot</label>
+              <input type="date" class="form-control" id="dateTo" style="width:150px" onchange="applyDateFilter()">
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -131,11 +77,6 @@
         <div class="stat-label">Gemiddeld ★</div>
         <div class="stat-value" id="statAvg">—</div>
       </div>
-    </div>
-
-    <!-- Review Calendar -->
-    <div class="lf-cal-wrap" id="calendarWrap">
-      <div class="lf-cal" id="reviewCalendar"></div>
     </div>
 
     <!-- Charts + QR -->
@@ -187,11 +128,21 @@ let profile = null;
 let emp = null;
 let empScans = [];
 let empReviews = [];
+let allScans = [];
+let allReviews = [];
 
 const params = new URLSearchParams(location.search);
 const empId = params.get('id');
 
+const toYMD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
 (async () => {
+  // Set default date range: first of current month → today
+  const now = new Date();
+  const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  document.getElementById('dateFrom').value = toYMD(firstOfMonth);
+  document.getElementById('dateTo').value = toYMD(now);
+
   if (!empId) { location.href = 'employees.html'; return; }
   const user = await requireAuth('index.html');
   if (!user) return;
@@ -203,7 +154,7 @@ const empId = params.get('id');
 })();
 
 async function loadEmployee() {
-  // Fetch employee and reviews in parallel; qr_scans is optional (table may not exist yet)
+  // Fetch employee and all reviews in parallel; qr_scans is optional (table may not exist yet)
   const [empRes, revRes] = await Promise.all([
     getSupabase().from('employees').select('*').eq('id', empId).single(),
     getSupabase().from('reviews').select('*').eq('employee_id', empId).order('review_date', { ascending: false })
@@ -211,7 +162,7 @@ async function loadEmployee() {
 
   if (empRes.error || !empRes.data) { location.href = 'employees.html'; return; }
   emp = empRes.data;
-  empReviews = revRes.data || [];
+  allReviews = revRes.data || [];
 
   // Try to load QR scans — table may not exist yet, so handle gracefully
   try {
@@ -220,9 +171,9 @@ async function loadEmployee() {
       .select('*')
       .eq('employee_id', empId)
       .order('scanned_at', { ascending: false });
-    empScans = scanRes.data || [];
+    allScans = scanRes.data || [];
   } catch (e) {
-    empScans = [];
+    allScans = [];
   }
 
   // Header
@@ -230,17 +181,6 @@ async function loadEmployee() {
   document.getElementById('empName').textContent = emp.name;
   document.getElementById('empFunction').textContent = emp.function_title || 'Geen functie';
   document.getElementById('empAvatar').textContent = emp.name.charAt(0).toUpperCase();
-
-  // Stats
-  const clicks = empScans.filter(s => s.button_clicked).length;
-  document.getElementById('statScans').textContent = empScans.length;
-  document.getElementById('statClicks').textContent = clicks;
-  document.getElementById('statConversion').textContent = empScans.length
-    ? Math.round((clicks / empScans.length) * 100) + '%' : '—';
-  document.getElementById('statReviews').textContent = empReviews.length;
-  const avg = empReviews.length
-    ? (empReviews.reduce((a, r) => a + r.star_rating, 0) / empReviews.length).toFixed(1) : '—';
-  document.getElementById('statAvg').textContent = avg !== '—' ? avg + ' ★' : '—';
 
   // QR — always use the canonical production URL so the QR works everywhere
   const qrUrl = `https://lofly-dev.pages.dev/dev/v1/redirect.html?qr=${emp.qr_code_id}`;
@@ -261,10 +201,44 @@ async function loadEmployee() {
       `<div style="font-size:11px;color:#ef4444">QR fout: ${qrErr.message}</div>`);
   }
 
-  // Review calendar
-  renderCalendar(empReviews, 'reviewCalendar');
+  // Apply date filter and render
+  applyDateFilter();
+}
 
-  // Charts and table — always render, even if data is empty
+function applyDateFilter() {
+  const dateFrom = document.getElementById('dateFrom').value;
+  const dateTo = document.getElementById('dateTo').value;
+
+  // Filter reviews by date range
+  empReviews = allReviews.filter(r => {
+    if (!r.review_date) return false;
+    const d = r.review_date.substring(0, 10);
+    if (dateFrom && d < dateFrom) return false;
+    if (dateTo && d > dateTo) return false;
+    return true;
+  });
+
+  // Filter scans by date range
+  empScans = allScans.filter(s => {
+    if (!s.scanned_at) return false;
+    const d = s.scanned_at.substring(0, 10);
+    if (dateFrom && d < dateFrom) return false;
+    if (dateTo && d > dateTo) return false;
+    return true;
+  });
+
+  // Stats
+  const clicks = empScans.filter(s => s.button_clicked).length;
+  document.getElementById('statScans').textContent = empScans.length;
+  document.getElementById('statClicks').textContent = clicks;
+  document.getElementById('statConversion').textContent = empScans.length
+    ? Math.round((clicks / empScans.length) * 100) + '%' : '—';
+  document.getElementById('statReviews').textContent = empReviews.length;
+  const avg = empReviews.length
+    ? (empReviews.reduce((a, r) => a + r.star_rating, 0) / empReviews.length).toFixed(1) : '—';
+  document.getElementById('statAvg').textContent = avg !== '—' ? avg + ' ★' : '—';
+
+  // Charts and table
   renderScansChart();
   renderStarsChart();
   renderReviewsTable();
@@ -378,194 +352,6 @@ function escHtml(str) {
   return d.innerHTML;
 }
 
-/* ── Review Calendar ── */
-(function() {
-  let _calYear, _calMonth, _calReviews, _calContainerId;
-
-  window.renderCalendar = function(reviewsArray, containerId) {
-    _calReviews = reviewsArray || [];
-    _calContainerId = containerId;
-    const now = new Date();
-    _calYear = now.getFullYear();
-    _calMonth = now.getMonth();
-    _drawCalendar();
-  };
-
-  function _drawCalendar() {
-    const container = document.getElementById(_calContainerId);
-    if (!container) return;
-
-    const monthNames = ['Januari','Februari','Maart','April','Mei','Juni',
-      'Juli','Augustus','September','Oktober','November','December'];
-    const dowLabels = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
-
-    // Build day-index map: "YYYY-MM-DD" -> [reviews]
-    const dayMap = {};
-    _calReviews.forEach(r => {
-      if (!r.review_date) return;
-      const key = r.review_date.substring(0, 10);
-      if (!dayMap[key]) dayMap[key] = [];
-      dayMap[key].push(r);
-    });
-
-    // First day of month (shifted so Monday=0)
-    const firstDay = new Date(_calYear, _calMonth, 1);
-    let startDow = firstDay.getDay(); // 0=Sun
-    startDow = (startDow + 6) % 7;    // Monday=0
-
-    const daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
-    const daysInPrev  = new Date(_calYear, _calMonth, 0).getDate();
-    const today = new Date();
-    const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-
-    // Build cells
-    let cells = '';
-
-    // Day-of-week headers
-    dowLabels.forEach(d => {
-      cells += `<div class="lf-cal-dow">${d}</div>`;
-    });
-
-    // Prev month trailing days
-    for (let i = startDow - 1; i >= 0; i--) {
-      const day = daysInPrev - i;
-      const m = _calMonth === 0 ? 12 : _calMonth;
-      const y = _calMonth === 0 ? _calYear - 1 : _calYear;
-      const key = `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      cells += _dayCell(day, key, true, key === todayKey, dayMap[key]);
-    }
-
-    // Current month days
-    for (let day = 1; day <= daysInMonth; day++) {
-      const key = `${_calYear}-${String(_calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      cells += _dayCell(day, key, false, key === todayKey, dayMap[key]);
-    }
-
-    // Next month leading days
-    const totalCells = startDow + daysInMonth;
-    const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
-    for (let day = 1; day <= remaining; day++) {
-      const m = _calMonth === 11 ? 1 : _calMonth + 2;
-      const y = _calMonth === 11 ? _calYear + 1 : _calYear;
-      const key = `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      cells += _dayCell(day, key, true, key === todayKey, dayMap[key]);
-    }
-
-    container.innerHTML = `
-      <div class="lf-cal-header">
-        <span class="lf-cal-title">${monthNames[_calMonth]} ${_calYear}</span>
-        <div class="lf-cal-nav">
-          <button class="lf-cal-btn" onclick="_calNav(-1)">&#8249;</button>
-          <button class="lf-cal-btn" onclick="_calNav(1)">&#8250;</button>
-        </div>
-      </div>
-      <div class="lf-cal-grid">${cells}</div>
-    `;
-  }
-
-  function _dayCell(day, key, otherMonth, isToday, reviews) {
-    const hasR = reviews && reviews.length > 0;
-    const cls = [
-      'lf-cal-day',
-      otherMonth ? 'other-month' : '',
-      isToday ? 'today' : '',
-      hasR ? 'has-reviews' : ''
-    ].filter(Boolean).join(' ');
-
-    const badge = hasR
-      ? `<span class="lf-cal-badge">${reviews.length}</span>`
-      : '';
-    const clickAttr = hasR
-      ? `onclick="_calShowPopup(event,'${key}')"`
-      : '';
-
-    return `<div class="${cls}" ${clickAttr}>
-      <span class="lf-cal-daynum">${day}</span>
-      ${badge}
-    </div>`;
-  }
-
-  window._calNav = function(dir) {
-    _calMonth += dir;
-    if (_calMonth > 11) { _calMonth = 0; _calYear++; }
-    if (_calMonth < 0)  { _calMonth = 11; _calYear--; }
-    _calShowPopupClose();
-    _drawCalendar();
-  };
-
-  window._calShowPopup = function(event, dateKey) {
-    _calShowPopupClose();
-
-    const dayMap = {};
-    _calReviews.forEach(r => {
-      if (!r.review_date) return;
-      const k = r.review_date.substring(0, 10);
-      if (!dayMap[k]) dayMap[k] = [];
-      dayMap[k].push(r);
-    });
-
-    const reviews = dayMap[dateKey] || [];
-    if (!reviews.length) return;
-
-    const [y, m, d] = dateKey.split('-');
-    const label = `${parseInt(d)} ${['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'][parseInt(m)-1]} ${y}`;
-
-    const statusLabel = { pending: 'Te behandelen', posted: 'Geplaatst', ignored: 'Genegeerd' };
-    const items = reviews.map(r => `
-      <div class="lf-cal-popup-item">
-        <span class="lf-cal-popup-name">${_escHtmlCal(r.reviewer_name || 'Anoniem')}</span>
-        <span class="lf-cal-popup-stars">${'★'.repeat(r.star_rating || 0)}${'☆'.repeat(5-(r.star_rating||0))}</span>
-        <span class="lf-cal-popup-status">${typeof getStatusBadge === 'function' ? getStatusBadge(r.status) : (statusLabel[r.status] || r.status)}</span>
-      </div>
-    `).join('');
-
-    const popup = document.createElement('div');
-    popup.className = 'lf-cal-popup';
-    popup.id = 'lf-cal-popup';
-    popup.innerHTML = `
-      <div class="lf-cal-popup-header">
-        <span>${label} — ${reviews.length} review${reviews.length > 1 ? 's' : ''}</span>
-        <button class="lf-cal-popup-close" onclick="_calShowPopupClose()">×</button>
-      </div>
-      <div class="lf-cal-popup-list">${items}</div>
-    `;
-    document.body.appendChild(popup);
-
-    // Overlay to close on outside click
-    const overlay = document.createElement('div');
-    overlay.id = 'lf-cal-overlay';
-    overlay.onclick = _calShowPopupClose;
-    document.body.appendChild(overlay);
-
-    // Position popup near click
-    const rect = event.currentTarget.getBoundingClientRect();
-    const scrollY = window.scrollY;
-    let top = rect.bottom + scrollY + 4;
-    let left = rect.left + window.scrollX;
-
-    // Prevent going off right edge
-    const popupW = 300;
-    if (left + popupW > window.innerWidth - 12) {
-      left = window.innerWidth - popupW - 12;
-    }
-
-    popup.style.top = top + 'px';
-    popup.style.left = left + 'px';
-  };
-
-  window._calShowPopupClose = function() {
-    const p = document.getElementById('lf-cal-popup');
-    if (p) p.remove();
-    const o = document.getElementById('lf-cal-overlay');
-    if (o) o.remove();
-  };
-
-  function _escHtmlCal(str) {
-    const d = document.createElement('div');
-    d.appendChild(document.createTextNode(str));
-    return d.innerHTML;
-  }
-})();
 </script>
 </body>
 </html>
