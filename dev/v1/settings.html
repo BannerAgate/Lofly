@@ -23,7 +23,6 @@
     <div class="tabs">
       <button class="tab-btn active" onclick="showTab(this,'tabOrg')">Organisatie</button>
       <button class="tab-btn" onclick="showTab(this,'tabIntegrations')">Integraties</button>
-      <button class="tab-btn" onclick="showTab(this,'tabAI')">AI Instellingen</button>
       <button class="tab-btn" onclick="showTab(this,'tabUsers')">Gebruikers</button>
       <button class="tab-btn" onclick="showTab(this,'tabInvite')">Uitnodigen</button>
     </div>
@@ -102,26 +101,6 @@
             <input class="form-control" id="kvApiToken" type="password" placeholder="API token">
           </div>
           <button class="btn btn-primary" onclick="saveKVSettings()">Opslaan</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== Tab: AI ===== -->
-    <div id="tabAI" class="tab-pane hidden">
-      <div class="card">
-        <div class="card-header"><span class="card-title">Claude AI Instellingen</span></div>
-        <div style="max-width:600px">
-          <div class="form-group">
-            <label class="form-label">Claude API Key</label>
-            <input class="form-control" id="claudeApiKey" type="password" placeholder="sk-ant-...">
-            <div class="form-hint">Vind je key op console.anthropic.com</div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">AI Systeem Prompt</label>
-            <textarea class="form-control" id="claudePrompt" rows="8" placeholder="Jij bent een vriendelijke klantenservice medewerker van Auto Smeeing..."></textarea>
-            <div class="form-hint">Dit is de instructie die Claude krijgt bij het genereren van reviewantwoorden. Beschrijf de toon, stijl en bedrijfsnaam.</div>
-          </div>
-          <button class="btn btn-primary" onclick="saveAISettings()">Opslaan</button>
         </div>
       </div>
     </div>
@@ -234,10 +213,8 @@ function populateFields() {
   document.getElementById('googleLocationId').value = org.google_location_id || '';
   document.getElementById('kvLocationId').value = org.kv_location_id || '';
   document.getElementById('kvTenantId').value = org.kv_tenant_id || '';
-  document.getElementById('claudePrompt').value = org.claude_ai_prompt || '';
   // Sensitive fields: only show placeholder if set
   if (org.kv_api_token) document.getElementById('kvApiToken').placeholder = '(opgeslagen)';
-  if (org.claude_api_key) document.getElementById('claudeApiKey').placeholder = '(opgeslagen)';
 }
 
 // ============================================================
@@ -279,15 +256,6 @@ async function saveKVSettings() {
   };
   const token = document.getElementById('kvApiToken').value.trim();
   if (token) updates.kv_api_token = token;
-  await saveOrgUpdate(updates);
-}
-
-async function saveAISettings() {
-  const updates = {
-    claude_ai_prompt: document.getElementById('claudePrompt').value.trim(),
-  };
-  const key = document.getElementById('claudeApiKey').value.trim();
-  if (key) updates.claude_api_key = key;
   await saveOrgUpdate(updates);
 }
 

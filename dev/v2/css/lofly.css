@@ -701,6 +701,8 @@ textarea.form-control { resize: vertical; min-height: 100px; }
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 90px;
+  max-height: 180px;
+  overflow-y: auto;
 }
 
 /* ============================================================
@@ -728,5 +730,4 @@ textarea.form-control { resize: vertical; min-height: 100px; }
 .gap-2 { gap: 8px; }
 .gap-3 { gap: 12px; }
 .mt-1 { margin-top: 4px; }
-.mt-2 { margin-top: 8px; }
-.mt-4 { margin-to
+.mt
