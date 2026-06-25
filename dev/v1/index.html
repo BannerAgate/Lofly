@@ -35,7 +35,7 @@
     </form>
 
     <p style="text-align:center; margin-top:16px; font-size:13px; color:#6b7280;">
-      Nog geen account? Neem contact op met je beheerder.
+      <a href="#" onclick="toggleMode()" id="toggleLink">Account aanmaken (eenmalig setup)</a>
     </p>
   </div>
 </div>
@@ -52,6 +52,14 @@
 const form = document.getElementById('loginForm');
 const errorEl = document.getElementById('authError');
 const submitBtn = document.getElementById('submitBtn');
+let isRegisterMode = false;
+
+function toggleMode() {
+  isRegisterMode = !isRegisterMode;
+  submitBtn.textContent = isRegisterMode ? 'Account aanmaken' : 'Inloggen';
+  document.getElementById('toggleLink').textContent = isRegisterMode ? '← Terug naar inloggen' : 'Account aanmaken (eenmalig setup)';
+  document.querySelector('.auth-title').textContent = isRegisterMode ? 'Account aanmaken' : 'Welkom terug';
+}
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -62,15 +70,31 @@ form.addEventListener('submit', async (e) => {
   const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
 
-  const { error } = await getSupabase().auth.signInWithPassword({ email, password });
-
-  if (error) {
-    errorEl.textContent = 'Ongeldig e-mailadres of wachtwoord.';
-    errorEl.style.display = 'block';
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Inloggen';
+  if (isRegisterMode) {
+    const { error } = await getSupabase().auth.signUp({ email, password });
+    if (error) {
+      errorEl.textContent = 'Fout: ' + error.message;
+      errorEl.style.display = 'block';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Account aanmaken';
+    } else {
+      errorEl.style.background = '#d1fae5';
+      errorEl.style.color = '#065f46';
+      errorEl.textContent = 'Account aangemaakt! Je kunt nu inloggen.';
+      errorEl.style.display = 'block';
+      submitBtn.disabled = false;
+      toggleMode();
+    }
   } else {
-    window.location.href = 'reviews.html';
+    const { error } = await getSupabase().auth.signInWithPassword({ email, password });
+    if (error) {
+      errorEl.textContent = 'Ongeldig e-mailadres of wachtwoord.';
+      errorEl.style.display = 'block';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Inloggen';
+    } else {
+      window.location.href = 'reviews.html';
+    }
   }
 });
 </script>
