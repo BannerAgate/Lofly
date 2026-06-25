@@ -139,7 +139,7 @@ function renderEmployees() {
     const empAvg = empRevs.length
       ? (empRevs.reduce((a, r) => a + r.star_rating, 0) / empRevs.length).toFixed(1)
       : '—';
-    const qrUrl = `${location.origin}/dev/v1/redirect.html?qr=${emp.qr_code_id}`;
+    const qrUrl = `https://lofly-dev.pages.dev/dev/v1/redirect.html?qr=${emp.qr_code_id}`;
 
     return `
       <tr>
@@ -149,8 +149,8 @@ function renderEmployees() {
         <td style="color:#6b7280">${escHtml(emp.function_title || '—')}</td>
         <td>
           <div style="display:flex;align-items:center;gap:8px">
-            <code style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:2px 6px;border-radius:4px">${emp.qr_code_id.substring(0,12)}...</code>
-            <button class="btn-icon btn" title="Kopieer QR URL" onclick="copyQR('${qrUrl}')">⎘</button>
+            <code style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:2px 6px;border-radius:4px">${emp.qr_code_id ? emp.qr_code_id.substring(0,12) + '...' : '—'}</code>
+            ${emp.qr_code_id ? `<button class="btn-icon btn" title="Kopieer QR URL" onclick="copyQR('${qrUrl}')">⎘</button>` : ''}
           </div>
         </td>
         <td>${empScans.length}</td>

@@ -126,16 +126,27 @@ const empId = params.get('id');
 })();
 
 async function loadEmployee() {
-  const [empRes, scanRes, revRes] = await Promise.all([
+  // Fetch employee and reviews in parallel; qr_scans is optional (table may not exist yet)
+  const [empRes, revRes] = await Promise.all([
     getSupabase().from('employees').select('*').eq('id', empId).single(),
-    getSupabase().from('qr_scans').select('*').eq('employee_id', empId).order('scanned_at', { ascending: false }),
     getSupabase().from('reviews').select('*').eq('employee_id', empId).order('review_date', { ascending: false })
   ]);
 
   if (empRes.error || !empRes.data) { location.href = 'employees.html'; return; }
   emp = empRes.data;
-  empScans = scanRes.data || [];
   empReviews = revRes.data || [];
+
+  // Try to load QR scans — table may not exist yet, so handle gracefully
+  try {
+    const scanRes = await getSupabase()
+      .from('qr_scans')
+      .select('*')
+      .eq('employee_id', empId)
+      .order('scanned_at', { ascending: false });
+    empScans = scanRes.data || [];
+  } catch (e) {
+    empScans = [];
+  }
 
   // Header
   document.title = `Lofly — ${emp.name}`;
@@ -154,12 +165,18 @@ async function loadEmployee() {
     ? (empReviews.reduce((a, r) => a + r.star_rating, 0) / empReviews.length).toFixed(1) : '—';
   document.getElementById('statAvg').textContent = avg !== '—' ? avg + ' ★' : '—';
 
-  // QR
-  const qrUrl = `${location.origin}/dev/v1/redirect.html?qr=${emp.qr_code_id}`;
+  // QR — always use the canonical production URL so the QR works everywhere
+  const qrUrl = `https://lofly-dev.pages.dev/dev/v1/redirect.html?qr=${emp.qr_code_id}`;
   document.getElementById('qrCodeId').textContent = emp.qr_code_id.substring(0, 12) + '...';
-  QRCode.toCanvas(document.getElementById('qrCanvas'), qrUrl, { width: 140, margin: 1 });
+  try {
+    await QRCode.toCanvas(document.getElementById('qrCanvas'), qrUrl, { width: 140, margin: 1 });
+  } catch (qrErr) {
+    console.error('QR genereren mislukt:', qrErr);
+    document.getElementById('qrCanvas').insertAdjacentHTML('afterend',
+      `<div style="font-size:11px;color:#ef4444">QR fout: ${qrErr.message}</div>`);
+  }
 
-  // Charts
+  // Charts and table — always render, even if data is empty
   renderScansChart();
   renderStarsChart();
   renderReviewsTable();
@@ -252,7 +269,7 @@ function renderReviewsTable() {
 }
 
 function copyQRUrl() {
-  const url = `${location.origin}/dev/v1/redirect.html?qr=${emp.qr_code_id}`;
+  const url = `https://lofly-dev.pages.dev/dev/v1/redirect.html?qr=${emp.qr_code_id}`;
   navigator.clipboard.writeText(url);
   showToast('QR URL gekopieerd!');
 }
