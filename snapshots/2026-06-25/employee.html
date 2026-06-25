@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lofly — Medewerker detail</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="css/lofly.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+<div class="app-layout" id="appLayout" style="display:none">
+  <div id="sidebarContainer"></div>
+
+  <main class="main-content">
+    <!-- Back link -->
+    <a href="employees.html" style="font-size:13px;color:#6b7280;display:inline-flex;align-items:center;gap:4px;margin-bottom:20px">
+      ← Terug naar medewerkers
+    </a>
+
+    <!-- Employee header -->
+    <div class="card" style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="width:56px;height:56px;border-radius:50%;background:#1a2335;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:700" id="empAvatar">?</div>
+          <div>
+            <h1 class="page-title" id="empName">Laden...</h1>
+            <p class="page-subtitle" id="empFunction"></p>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" onclick="downloadQR()">⬇ QR downloaden</button>
+          <button class="btn btn-secondary btn-sm" onclick="copyQRUrl()">⎘ QR URL kopiëren</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="stats-grid" style="margin-bottom:20px">
+      <div class="stat-card accent">
+        <div class="stat-label">QR Scans</div>
+        <div class="stat-value" id="statScans">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">QR Klikken</div>
+        <div class="stat-value" id="statClicks">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Conversie</div>
+        <div class="stat-value" id="statConversion">—</div>
+        <div class="stat-sub">klik / scan</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Gekoppelde reviews</div>
+        <div class="stat-value" id="statReviews">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Gemiddeld ★</div>
+        <div class="stat-value" id="statAvg">—</div>
+      </div>
+    </div>
+
+    <!-- Charts + QR -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 200px;gap:20px;margin-bottom:20px">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Scans per week</span></div>
+        <canvas id="chartScans" height="180"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Sterrenverdeling</span></div>
+        <canvas id="chartStars" height="180"></canvas>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px">
+        <div class="card-title" style="text-align:center">QR Code</div>
+        <div id="qrCanvas" style="width:140px;height:140px"></div>
+        <div style="font-size:11px;color:#9ca3af;text-align:center" id="qrCodeId"></div>
+      </div>
+    </div>
+
+    <!-- Reviews table -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb">
+        <span class="card-title">Gekoppelde reviews</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Klant</th>
+              <th>Portal</th>
+              <th>Beoordeling</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="reviewsBody">
+            <tr><td colspan="5" class="loading-overlay">Laden...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script>
+let profile = null;
+let emp = null;
+let empScans = [];
+let empReviews = [];
+
+const params = new URLSearchParams(location.search);
+const empId = params.get('id');
+
+(async () => {
+  if (!empId) { location.href = 'employees.html'; return; }
+  const user = await requireAuth('index.html');
+  if (!user) return;
+  profile = await getCurrentProfile();
+  if (!profile) { signOut(); return; }
+  document.getElementById('appLayout').style.display = 'flex';
+  document.getElementById('sidebarContainer').innerHTML = renderNav('employees');
+  await loadEmployee();
+})();
+
+async function loadEmployee() {
+  // Fetch employee and reviews in parallel; qr_scans is optional (table may not exist yet)
+  const [empRes, revRes] = await Promise.all([
+    getSupabase().from('employees').select('*').eq('id', empId).single(),
+    getSupabase().from('reviews').select('*').eq('employee_id', empId).order('review_date', { ascending: false })
+  ]);
+
+  if (empRes.error || !empRes.data) { location.href = 'employees.html'; return; }
+  emp = empRes.data;
+  empReviews = revRes.data || [];
+
+  // Try to load QR scans — table may not exist yet, so handle gracefully
+  try {
+    const scanRes = await getSupabase()
+      .from('qr_scans')
+      .select('*')
+      .eq('employee_id', empId)
+      .order('scanned_at', { ascending: false });
+    empScans = scanRes.data || [];
+  } catch (e) {
+    empScans = [];
+  }
+
+  // Header
+  document.title = `Lofly — ${emp.name}`;
+  document.getElementById('empName').textContent = emp.name;
+  document.getElementById('empFunction').textContent = emp.function_title || 'Geen functie';
+  document.getElementById('empAvatar').textContent = emp.name.charAt(0).toUpperCase();
+
+  // Stats
+  const clicks = empScans.filter(s => s.button_clicked).length;
+  document.getElementById('statScans').textContent = empScans.length;
+  document.getElementById('statClicks').textContent = clicks;
+  document.getElementById('statConversion').textContent = empScans.length
+    ? Math.round((clicks / empScans.length) * 100) + '%' : '—';
+  document.getElementById('statReviews').textContent = empReviews.length;
+  const avg = empReviews.length
+    ? (empReviews.reduce((a, r) => a + r.star_rating, 0) / empReviews.length).toFixed(1) : '—';
+  document.getElementById('statAvg').textContent = avg !== '—' ? avg + ' ★' : '—';
+
+  // QR — always use the canonical production URL so the QR works everywhere
+  const qrUrl = `https://lofly-dev.pages.dev/dev/v1/redirect.html?qr=${emp.qr_code_id}`;
+  document.getElementById('qrCodeId').textContent = emp.qr_code_id.substring(0, 12) + '...';
+  try {
+    const qrContainer = document.getElementById('qrCanvas');
+    qrContainer.innerHTML = '';
+    new QRCode(qrContainer, {
+      text: qrUrl,
+      width: 140,
+      height: 140,
+      colorDark: '#1a2335',
+      colorLight: '#ffffff',
+    });
+  } catch (qrErr) {
+    console.error('QR genereren mislukt:', qrErr);
+    document.getElementById('qrCanvas').insertAdjacentHTML('afterend',
+      `<div style="font-size:11px;color:#ef4444">QR fout: ${qrErr.message}</div>`);
+  }
+
+  // Charts and table — always render, even if data is empty
+  renderScansChart();
+  renderStarsChart();
+  renderReviewsTable();
+}
+
+function renderScansChart() {
+  const weeks = [];
+  const now = new Date();
+  for (let i = 7; i >= 0; i--) {
+    const start = new Date(now);
+    start.setDate(now.getDate() - i * 7);
+    start.setHours(0,0,0,0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 7);
+    weeks.push({ label: `W${start.getDate()}/${start.getMonth()+1}`, start, end });
+  }
+  const counts = weeks.map(w =>
+    empScans.filter(s => {
+      const d = new Date(s.scanned_at);
+      return d >= w.start && d < w.end;
+    }).length
+  );
+
+  new Chart(document.getElementById('chartScans').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: weeks.map(w => w.label),
+      datasets: [{
+        label: 'Scans',
+        data: counts,
+        borderColor: '#F97316',
+        backgroundColor: 'rgba(249,115,22,.1)',
+        tension: .35,
+        fill: true,
+        pointBackgroundColor: '#F97316',
+        pointRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+}
+
+function renderStarsChart() {
+  const counts = [1,2,3,4,5].map(s => empReviews.filter(r => r.star_rating === s).length);
+  new Chart(document.getElementById('chartStars').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: ['1★','2★','3★','4★','5★'],
+      datasets: [{
+        data: counts,
+        backgroundColor: ['#fee2e2','#fecaca','#fde68a','#bbf7d0','#6ee7b7'],
+        borderWidth: 0,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+}
+
+function renderReviewsTable() {
+  const tbody = document.getElementById('reviewsBody');
+  if (!empReviews.length) {
+    tbody.innerHTML = `
+      <tr><td colspan="5">
+        <div class="empty-state">
+          <div class="empty-state-icon">📭</div>
+          <div class="empty-state-title">Geen reviews gekoppeld</div>
+          <div class="empty-state-sub">Reviews worden hier getoond wanneer ze aan deze medewerker worden gekoppeld.</div>
+        </div>
+      </td></tr>`;
+    return;
+  }
+  tbody.innerHTML = empReviews.map(r => `
+    <tr>
+      <td style="color:#6b7280;white-space:nowrap">${formatDate(r.review_date)}</td>
+      <td class="font-semibold">${escHtml(r.reviewer_name || 'Anoniem')}</td>
+      <td>${getSourceBadge(r.source)}</td>
+      <td>${renderStars(r.star_rating)}</td>
+      <td>${getStatusBadge(r.status)}</td>
+    </tr>
+  `).join('');
+}
+
+function copyQRUrl() {
+  const url = `https://lofly-dev.pages.dev/dev/v1/redirect.html?qr=${emp.qr_code_id}`;
+  navigator.clipboard.writeText(url);
+  showToast('QR URL gekopieerd!');
+}
+
+function downloadQR() {
+  const container = document.getElementById('qrCanvas');
+  const canvas = container.querySelector('canvas');
+  if (!canvas) { showToast('QR code niet beschikbaar', 'error'); return; }
+  const link = document.createElement('a');
+  link.download = `qr-${emp.name.replace(/\s+/g,'-').toLowerCase()}.png`;
+  link.href = canvas.toDataURL();
+  link.click();
+}
+
+function escHtml(str) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(str));
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>

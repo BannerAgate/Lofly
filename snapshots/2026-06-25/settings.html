@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lofly — Instellingen</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="css/lofly.css">
+</head>
+<body>
+
+<div class="app-layout" id="appLayout" style="display:none">
+  <div id="sidebarContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Instellingen</h1>
+        <p class="page-subtitle" id="orgName"></p>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab(this,'tabOrg')">Organisatie</button>
+      <button class="tab-btn" onclick="showTab(this,'tabIntegrations')">Integraties</button>
+      <button class="tab-btn" onclick="showTab(this,'tabUsers')">Gebruikers</button>
+      <button class="tab-btn" onclick="showTab(this,'tabInvite')">Uitnodigen</button>
+    </div>
+
+    <!-- ===== Tab: Organisatie ===== -->
+    <div id="tabOrg" class="tab-pane">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Organisatiegegevens</span></div>
+        <div style="max-width:500px">
+          <div class="form-group">
+            <label class="form-label">Naam</label>
+            <input class="form-control" id="orgNameInput" type="text">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Slug (URL-naam)</label>
+            <input class="form-control" id="orgSlug" type="text" readonly style="background:#f9fafb;color:#6b7280">
+            <div class="form-hint">Kan niet worden gewijzigd.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Contacte-mail</label>
+            <input class="form-control" id="orgEmail" type="email">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Google Review URL</label>
+            <input class="form-control" id="orgGoogleUrl" type="url" placeholder="https://g.page/r/...">
+          </div>
+          <button class="btn btn-primary" onclick="saveOrgSettings()">Opslaan</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Tab: Integraties ===== -->
+    <div id="tabIntegrations" class="tab-pane hidden">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <span class="card-title">Google Business Profile</span>
+          <span class="badge badge-google">Google</span>
+        </div>
+        <div style="max-width:500px">
+          <div class="form-group">
+            <label class="form-label">Account ID</label>
+            <input class="form-control" id="googleAccountId" type="text" placeholder="accounts/123456789">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Location ID</label>
+            <input class="form-control" id="googleLocationId" type="text" placeholder="accounts/.../locations/...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">OAuth Refresh Token</label>
+            <input class="form-control" id="googleRefreshToken" type="password" placeholder="Refresh token voor plaatsen reacties">
+            <div class="form-hint">
+              Nodig voor het automatisch plaatsen van reacties op Google.
+              <a href="#" onclick="showGoogleInstructions();return false">Hoe krijg ik dit?</a>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="saveGoogleSettings()">Opslaan</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Klantenvertellen</span>
+          <span class="badge badge-kv">KV</span>
+        </div>
+        <div style="max-width:500px">
+          <div class="form-group">
+            <label class="form-label">Locatie ID</label>
+            <input class="form-control" id="kvLocationId" type="text" placeholder="1051599">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tenant ID</label>
+            <input class="form-control" id="kvTenantId" type="text" placeholder="Numerieke tenant ID">
+          </div>
+          <div class="form-group">
+            <label class="form-label">API Token</label>
+            <input class="form-control" id="kvApiToken" type="password" placeholder="API token">
+          </div>
+          <button class="btn btn-primary" onclick="saveKVSettings()">Opslaan</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Tab: Gebruikers ===== -->
+    <div id="tabUsers" class="tab-pane hidden">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Teamleden</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Naam</th>
+                <th>E-mail</th>
+                <th>Rol</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="usersBody">
+              <tr><td colspan="4" style="padding:24px;text-align:center;color:#9ca3af">Laden...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Tab: Uitnodigen ===== -->
+    <div id="tabInvite" class="tab-pane hidden">
+      <div class="card" style="max-width:500px">
+        <div class="card-header"><span class="card-title">Nieuwe gebruiker uitnodigen</span></div>
+        <div class="form-group">
+          <label class="form-label">E-mailadres</label>
+          <input class="form-control" id="inviteEmail" type="email" placeholder="collega@bedrijf.nl">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rol</label>
+          <select class="form-control" id="inviteRole">
+            <option value="reviewer">Reviewer (kan reviews behandelen)</option>
+            <option value="readonly">Readonly (alleen inzien)</option>
+            <option value="admin">Admin (volledige toegang)</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="sendInvite()">Uitnodiging versturen</button>
+
+        <div style="margin-top:28px">
+          <div class="card-title" style="margin-bottom:12px">Openstaande uitnodigingen</div>
+          <div id="inviteList" style="color:#6b7280;font-size:13.5px">Laden...</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Google instructions modal -->
+<div class="modal-backdrop hidden" id="googleModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title">Google OAuth Refresh Token</h2>
+      <button class="modal-close" onclick="document.getElementById('googleModal').classList.add('hidden')">✕</button>
+    </div>
+    <ol style="padding-left:20px;line-height:2;font-size:13.5px;color:#374151">
+      <li>Ga naar <a href="https://console.cloud.google.com" target="_blank">Google Cloud Console</a></li>
+      <li>Maak een OAuth 2.0 client aan (type: Web application)</li>
+      <li>Voeg <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px">https://developers.google.com/oauthplayground</code> toe als redirect URI</li>
+      <li>Ga naar <a href="https://developers.google.com/oauthplayground" target="_blank">OAuth Playground</a></li>
+      <li>Klik op het instellingen-icoontje → vink "Use your own OAuth credentials" aan</li>
+      <li>Vul je Client ID en Secret in</li>
+      <li>Zoek naar <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px">https://www.googleapis.com/auth/business.manage</code> en autoriseer</li>
+      <li>Klik "Exchange authorization code for tokens"</li>
+      <li>Kopieer de <strong>Refresh token</strong> en plak hem hierboven</li>
+    </ol>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="document.getElementById('googleModal').classList.add('hidden')">Sluiten</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script>
+let profile = null;
+let org = null;
+
+(async () => {
+  const user = await requireAuth('index.html');
+  if (!user) return;
+  profile = await getCurrentProfile();
+  if (!profile) { signOut(); return; }
+  if (profile.role !== 'admin') {
+    showToast('Alleen admins hebben toegang tot instellingen', 'error');
+    setTimeout(() => location.href = 'reviews.html', 2000);
+    return;
+  }
+  org = profile.organizations;
+  document.getElementById('orgName').textContent = org?.name || '';
+  document.getElementById('appLayout').style.display = 'flex';
+  document.getElementById('sidebarContainer').innerHTML = renderNav('settings');
+  populateFields();
+  loadUsers();
+  loadInvitations();
+})();
+
+function populateFields() {
+  if (!org) return;
+  document.getElementById('orgNameInput').value = org.name || '';
+  document.getElementById('orgSlug').value = org.slug || '';
+  document.getElementById('orgEmail').value = org.contact_email || '';
+  document.getElementById('orgGoogleUrl').value = org.google_review_url || '';
+  document.getElementById('googleAccountId').value = org.google_account_id || '';
+  document.getElementById('googleLocationId').value = org.google_location_id || '';
+  document.getElementById('kvLocationId').value = org.kv_location_id || '';
+  document.getElementById('kvTenantId').value = org.kv_tenant_id || '';
+  // Sensitive fields: only show placeholder if set
+  if (org.kv_api_token) document.getElementById('kvApiToken').placeholder = '(opgeslagen)';
+}
+
+// ============================================================
+// Tab switching
+// ============================================================
+function showTab(btn, tabId) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
+  document.getElementById(tabId).classList.remove('hidden');
+}
+
+// ============================================================
+// Save org settings
+// ============================================================
+async function saveOrgSettings() {
+  const updates = {
+    name: document.getElementById('orgNameInput').value.trim(),
+    contact_email: document.getElementById('orgEmail').value.trim(),
+    google_review_url: document.getElementById('orgGoogleUrl').value.trim(),
+  };
+  await saveOrgUpdate(updates);
+}
+
+async function saveGoogleSettings() {
+  const updates = {
+    google_account_id: document.getElementById('googleAccountId').value.trim(),
+    google_location_id: document.getElementById('googleLocationId').value.trim(),
+  };
+  const token = document.getElementById('googleRefreshToken').value.trim();
+  if (token) updates.google_refresh_token = token;
+  await saveOrgUpdate(updates);
+}
+
+async function saveKVSettings() {
+  const updates = {
+    kv_location_id: document.getElementById('kvLocationId').value.trim(),
+    kv_tenant_id: document.getElementById('kvTenantId').value.trim() || null,
+  };
+  const token = document.getElementById('kvApiToken').value.trim();
+  if (token) updates.kv_api_token = token;
+  await saveOrgUpdate(updates);
+}
+
+async function saveOrgUpdate(updates) {
+  const { error } = await getSupabase()
+    .from('organizations')
+    .update(updates)
+    .eq('id', profile.organization_id);
+  if (error) { showToast('Fout: ' + error.message, 'error'); return; }
+  showToast('Instellingen opgeslagen');
+  // Refresh profile
+  profile = await getCurrentProfile();
+  org = profile.organizations;
+}
+
+// ============================================================
+// Users
+// ============================================================
+async function loadUsers() {
+  const { data } = await getSupabase()
+    .from('profiles')
+    .select('id, full_name, role')
+    .order('full_name');
+
+  const tbody = document.getElementById('usersBody');
+  if (!data?.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="padding:24px;text-align:center;color:#9ca3af">Geen gebruikers gevonden</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(u => `
+    <tr>
+      <td class="font-semibold">${escHtml(u.full_name || 'Onbekend')}</td>
+      <td style="color:#6b7280">—</td>
+      <td>
+        <select class="form-control" style="width:140px" onchange="updateRole('${u.id}', this.value)" ${u.id === profile.id ? 'disabled' : ''}>
+          <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+          <option value="reviewer" ${u.role==='reviewer'?'selected':''}>Reviewer</option>
+          <option value="readonly" ${u.role==='readonly'?'selected':''}>Readonly</option>
+        </select>
+      </td>
+      <td>
+        ${u.id !== profile.id ? `<button class="btn btn-danger btn-sm" onclick="removeUser('${u.id}')">Verwijderen</button>` : '<span style="color:#9ca3af;font-size:12px">Jij</span>'}
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function updateRole(userId, role) {
+  const { error } = await getSupabase().from('profiles').update({ role }).eq('id', userId);
+  if (error) showToast('Fout: ' + error.message, 'error');
+  else showToast('Rol bijgewerkt');
+}
+
+async function removeUser(userId) {
+  if (!confirm('Weet je zeker dat je deze gebruiker wilt verwijderen?')) return;
+  const { error } = await getSupabase().from('profiles').delete().eq('id', userId);
+  if (error) { showToast('Fout: ' + error.message, 'error'); return; }
+  showToast('Gebruiker verwijderd');
+  loadUsers();
+}
+
+// ============================================================
+// Invitations
+// ============================================================
+async function loadInvitations() {
+  const { data } = await getSupabase()
+    .from('invitations')
+    .select('*')
+    .is('accepted_at', null)
+    .order('created_at', { ascending: false });
+
+  const el = document.getElementById('inviteList');
+  if (!data?.length) {
+    el.textContent = 'Geen openstaande uitnodigingen.';
+    return;
+  }
+
+  el.innerHTML = data.map(inv => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #e5e7eb">
+      <div>
+        <div class="font-semibold">${escHtml(inv.email)}</div>
+        <div style="font-size:12px;color:#9ca3af">Rol: ${inv.role} · Verloopt: ${formatDate(inv.expires_at)}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="cancelInvite('${inv.id}')">Annuleren</button>
+    </div>
+  `).join('');
+}
+
+async function sendInvite() {
+  const email = document.getElementById('inviteEmail').value.trim();
+  const role = document.getElementById('inviteRole').value;
+  if (!email) { showToast('Voer een e-mailadres in', 'error'); return; }
+
+  const { error } = await getSupabase()
+    .from('invitations')
+    .insert({
+      organization_id: profile.organization_id,
+      email, role,
+      invited_by: profile.id
+    });
+
+  if (error) { showToast('Fout: ' + error.message, 'error'); return; }
+  showToast('Uitnodiging aangemaakt (deel de login link handmatig)');
+  document.getElementById('inviteEmail').value = '';
+  loadInvitations();
+}
+
+async function cancelInvite(id) {
+  await getSupabase().from('invitations').delete().eq('id', id);
+  showToast('Uitnodiging geannuleerd');
+  loadInvitations();
+}
+
+function showGoogleInstructions() {
+  document.getElementById('googleModal').classList.remove('hidden');
+}
+
+function escHtml(str) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(str));
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
