@@ -34,12 +34,27 @@ async function getCurrentUser() {
 async function getCurrentProfile() {
   const user = await getCurrentUser();
   if (!user) return null;
-  const { data } = await getSupabase()
+
+  // Fetch profile first (no join — avoids potential RLS recursion)
+  const { data: profile, error: profileError } = await getSupabase()
     .from('profiles')
-    .select('*, organizations(*)')
+    .select('*')
     .eq('id', user.id)
     .single();
-  return data;
+
+  if (profileError || !profile) {
+    console.error('getCurrentProfile: profile fetch failed', profileError);
+    return null;
+  }
+
+  // Fetch org separately
+  const { data: org } = await getSupabase()
+    .from('organizations')
+    .select('*')
+    .eq('id', profile.organization_id)
+    .single();
+
+  return { ...profile, organizations: org || null };
 }
 
 async function requireAuth(redirectTo = '/dev/v1/index.html') {
