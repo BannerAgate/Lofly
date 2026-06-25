@@ -23,6 +23,10 @@ function getSupabase() {
 // Auth helpers
 // ============================================================
 async function getCurrentUser() {
+  // First try session (local, fast)
+  const { data: { session } } = await getSupabase().auth.getSession();
+  if (session?.user) return session.user;
+  // Fallback to server verification
   const { data: { user } } = await getSupabase().auth.getUser();
   return user;
 }
