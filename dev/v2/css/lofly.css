@@ -181,6 +181,19 @@ button { cursor: pointer; font-family: inherit; }
   font-size: 22px;
   font-weight: 700;
   color: var(--navy);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.page-title::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--orange);
+  flex-shrink: 0;
 }
 
 .page-subtitle {
@@ -722,12 +735,4 @@ textarea.form-control { resize: vertical; min-height: 100px; }
    Misc utilities
    ============================================================ */
 .text-muted { color: var(--text-muted); }
-.text-secondary { color: var(--text-secondary); }
-.font-semibold { font-weight: 600; }
-.font-bold { font-weight: 700; }
-.flex { display: flex; }
-.items-center { align-items: center; }
-.gap-2 { gap: 8px; }
-.gap-3 { gap: 12px; }
-.mt-1 { margin-top: 4px; }
-.mt
+.text-secondary { color: var(--text-sec
