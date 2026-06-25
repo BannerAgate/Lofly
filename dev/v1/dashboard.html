@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lofly — Dashboard</title>
+  <link rel="stylesheet" href="css/lofly.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div class="app-layout" id="appLayout" style="display:none">
+  <div id="sidebarContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle" id="orgName">Laden...</p>
+      </div>
+      <div style="display:flex;gap:8px">
+        <select class="form-control" id="periodFilter" style="width:160px" onchange="loadDashboard()">
+          <option value="30">Afgelopen 30 dagen</option>
+          <option value="90">Afgelopen 90 dagen</option>
+          <option value="365">Afgelopen jaar</option>
+          <option value="0">Alles</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- KPI stats -->
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card accent">
+        <div class="stat-label">Totaal reviews</div>
+        <div class="stat-value" id="kpiTotal">—</div>
+        <div class="stat-sub">alle portals</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Gemiddeld cijfer</div>
+        <div class="stat-value" id="kpiAvg">—</div>
+        <div class="stat-sub">uit 5</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Te behandelen</div>
+        <div class="stat-value" id="kpiPending" style="color:#856404">—</div>
+        <div class="stat-sub">wachten op reactie</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Geplaatste reacties</div>
+        <div class="stat-value" id="kpiPosted" style="color:#155724">—</div>
+        <div class="stat-sub">dit periode</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">QR scans</div>
+        <div class="stat-value" id="kpiScans">—</div>
+        <div class="stat-sub">totaal</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">QR klikken</div>
+        <div class="stat-value" id="kpiClicks">—</div>
+        <div class="stat-sub">naar review pagina</div>
+      </div>
+    </div>
+
+    <!-- Charts row -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Reviews per week</span>
+        </div>
+        <canvas id="chartWeekly" height="200"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Sterrenverdeling</span>
+        </div>
+        <canvas id="chartStars" height="200"></canvas>
+      </div>
+    </div>
+
+    <!-- Portal breakdown -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Google</span>
+          <span class="badge badge-google">Google</span>
+        </div>
+        <div class="stats-grid" style="margin-bottom:0">
+          <div>
+            <div class="stat-label">Totaal</div>
+            <div class="stat-value" style="font-size:20px" id="googleTotal">—</div>
+          </div>
+          <div>
+            <div class="stat-label">Gemiddeld</div>
+            <div class="stat-value" style="font-size:20px" id="googleAvg">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Klantenvertellen</span>
+          <span class="badge badge-kv">KV</span>
+        </div>
+        <div class="stats-grid" style="margin-bottom:0">
+          <div>
+            <div class="stat-label">Totaal</div>
+            <div class="stat-value" style="font-size:20px" id="kvTotal">—</div>
+          </div>
+          <div>
+            <div class="stat-label">Gemiddeld</div>
+            <div class="stat-value" style="font-size:20px" id="kvAvg">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top employees by reviews -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Top medewerkers (QR scans)</span>
+        <a href="employees.html" style="font-size:13px;color:#F97316">Alle medewerkers →</a>
+      </div>
+      <div class="table-wrap">
+        <table id="employeeTable">
+          <thead>
+            <tr>
+              <th>Medewerker</th>
+              <th>QR scans</th>
+              <th>QR klikken</th>
+              <th>Gekoppelde reviews</th>
+              <th>Gem. beoordeling</th>
+            </tr>
+          </thead>
+          <tbody id="employeeBody">
+            <tr><td colspan="5" style="padding:24px;color:#9ca3af;text-align:center">Laden...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script>
+let profile = null;
+let weeklyChart = null;
+let starsChart = null;
+
+(async () => {
+  const user = await requireAuth('index.html');
+  if (!user) return;
+  profile = await getCurrentProfile();
+  if (!profile) { signOut(); return; }
+  document.getElementById('orgName').textContent = profile.organizations?.name || '';
+  document.getElementById('appLayout').style.display = 'flex';
+  document.getElementById('sidebarContainer').innerHTML = renderNav('dashboard');
+  await loadDashboard();
+})();
+
+async function loadDashboard() {
+  const days = parseInt(document.getElementById('periodFilter').value);
+  const since = days > 0
+    ? new Date(Date.now() - days * 86400000).toISOString()
+    : null;
+
+  // Load reviews
+  let query = getSupabase().from('reviews').select('*');
+  if (since) query = query.gte('review_date', since);
+  const { data: reviews } = await query;
+
+  // Load QR scans
+  let scanQuery = getSupabase().from('qr_scans').select('*');
+  if (since) scanQuery = scanQuery.gte('scanned_at', since);
+  const { data: scans } = await scanQuery;
+
+  // Load employees
+  const { data: emps } = await getSupabase()
+    .from('employees')
+    .select('id, name');
+
+  const rv = reviews || [];
+  const sc = scans || [];
+
+  // KPIs
+  document.getElementById('kpiTotal').textContent = rv.length;
+  const avg = rv.length ? (rv.reduce((a, r) => a + r.star_rating, 0) / rv.length).toFixed(1) : '—';
+  document.getElementById('kpiAvg').textContent = avg;
+  document.getElementById('kpiPending').textContent = rv.filter(r => r.status === 'pending').length;
+  document.getElementById('kpiPosted').textContent = rv.filter(r => r.status === 'posted').length;
+  document.getElementById('kpiScans').textContent = sc.length;
+  document.getElementById('kpiClicks').textContent = sc.filter(s => s.button_clicked).length;
+
+  // Portal breakdown
+  const google = rv.filter(r => r.source === 'google');
+  const kv = rv.filter(r => r.source === 'klantenvertellen');
+  document.getElementById('googleTotal').textContent = google.length;
+  document.getElementById('googleAvg').textContent = google.length
+    ? (google.reduce((a, r) => a + r.star_rating, 0) / google.length).toFixed(1) : '—';
+  document.getElementById('kvTotal').textContent = kv.length;
+  document.getElementById('kvAvg').textContent = kv.length
+    ? (kv.reduce((a, r) => a + r.star_rating, 0) / kv.length).toFixed(1) : '—';
+
+  // Weekly chart
+  renderWeeklyChart(rv);
+
+  // Stars chart
+  renderStarsChart(rv);
+
+  // Employee table
+  renderEmployeeTable(emps || [], rv, sc);
+}
+
+function renderWeeklyChart(reviews) {
+  // Build last 8 weeks
+  const weeks = [];
+  const now = new Date();
+  for (let i = 7; i >= 0; i--) {
+    const start = new Date(now);
+    start.setDate(now.getDate() - i * 7);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 7);
+    weeks.push({ label: `W${start.getDate()}/${start.getMonth()+1}`, start, end });
+  }
+
+  const counts = weeks.map(w =>
+    reviews.filter(r => {
+      const d = new Date(r.review_date);
+      return d >= w.start && d < w.end;
+    }).length
+  );
+
+  const ctx = document.getElementById('chartWeekly').getContext('2d');
+  if (weeklyChart) weeklyChart.destroy();
+  weeklyChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: weeks.map(w => w.label),
+      datasets: [{
+        label: 'Reviews',
+        data: counts,
+        backgroundColor: 'rgba(249,115,22,.7)',
+        borderColor: '#F97316',
+        borderWidth: 1,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { precision: 0 } }
+      }
+    }
+  });
+}
+
+function renderStarsChart(reviews) {
+  const counts = [1,2,3,4,5].map(s => reviews.filter(r => r.star_rating === s).length);
+
+  const ctx = document.getElementById('chartStars').getContext('2d');
+  if (starsChart) starsChart.destroy();
+  starsChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['1 ster', '2 sterren', '3 sterren', '4 sterren', '5 sterren'],
+      datasets: [{
+        label: 'Aantal',
+        data: counts,
+        backgroundColor: ['#fee2e2','#fecaca','#fde68a','#bbf7d0','#6ee7b7'],
+        borderWidth: 0,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, ticks: { precision: 0 } }
+      }
+    }
+  });
+}
+
+function renderEmployeeTable(employees, reviews, scans) {
+  const tbody = document.getElementById('employeeBody');
+  if (!employees.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:24px;color:#9ca3af;text-align:center">Geen medewerkers gevonden</td></tr>';
+    return;
+  }
+
+  const rows = employees.map(emp => {
+    const empScans = scans.filter(s => s.employee_id === emp.id);
+    const empClicks = empScans.filter(s => s.button_clicked).length;
+    const empReviews = reviews.filter(r => r.employee_id === emp.id);
+    const empAvg = empReviews.length
+      ? (empReviews.reduce((a, r) => a + r.star_rating, 0) / empReviews.length).toFixed(1)
+      : '—';
+    return { emp, scans: empScans.length, clicks: empClicks, reviews: empReviews.length, avg: empAvg };
+  }).sort((a, b) => b.scans - a.scans);
+
+  tbody.innerHTML = rows.map(row => `
+    <tr>
+      <td><a href="employee.html?id=${row.emp.id}" style="font-weight:600;color:#1a2335">${escHtml(row.emp.name)}</a></td>
+      <td>${row.scans}</td>
+      <td>${row.clicks}</td>
+      <td>${row.reviews}</td>
+      <td>${row.avg !== '—' ? `${row.avg} ★` : '—'}</td>
+    </tr>
+  `).join('');
+}
+
+function escHtml(str) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(str));
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schrijf een review</title>
+  <style>
+    :root {
+      --navy: #1a2335;
+      --orange: #F97316;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: var(--navy);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 16px;
+    }
+
+    .card {
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 20px;
+      padding: 40px 32px;
+      text-align: center;
+      max-width: 380px;
+      width: 100%;
+      animation: fadeUp .4s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .logo-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--orange);
+      box-shadow: 0 0 24px rgba(249,115,22,.5);
+      margin: 0 auto 20px;
+    }
+
+    .company-name {
+      font-size: 13px;
+      color: rgba(255,255,255,.5);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .employee-name {
+      font-size: 26px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+      line-height: 1.2;
+    }
+
+    .employee-fn {
+      font-size: 14px;
+      color: rgba(255,255,255,.5);
+      margin-bottom: 28px;
+    }
+
+    .stars {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 28px;
+    }
+
+    .star {
+      font-size: 32px;
+      color: #f59e0b;
+      animation: starPop .3s ease both;
+    }
+
+    .star:nth-child(1) { animation-delay: .1s; }
+    .star:nth-child(2) { animation-delay: .15s; }
+    .star:nth-child(3) { animation-delay: .2s; }
+    .star:nth-child(4) { animation-delay: .25s; }
+    .star:nth-child(5) { animation-delay: .3s; }
+
+    @keyframes starPop {
+      from { transform: scale(0.5); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .cta-text {
+      font-size: 14px;
+      color: rgba(255,255,255,.65);
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    .btn-review {
+      display: block;
+      width: 100%;
+      padding: 15px 20px;
+      background: var(--orange);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .15s, transform .1s, box-shadow .15s;
+      box-shadow: 0 4px 16px rgba(249,115,22,.4);
+    }
+
+    .btn-review:hover {
+      background: #ea6c0a;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(249,115,22,.5);
+    }
+    .btn-review:active { transform: translateY(1px); }
+
+    .loading {
+      color: rgba(255,255,255,.5);
+      font-size: 14px;
+    }
+
+    .error-state {
+      color: rgba(255,255,255,.6);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card" id="card">
+  <div class="logo-mark"></div>
+  <p class="loading">Laden...</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+const SUPABASE_URL = 'https://abvxyvtglpjslqrocmwe.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFidnh5dnRnbHBqc2xxcm9jbXdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNzA5MjksImV4cCI6MjA5Nzk0NjkyOX0._9_FXRM7w7Z6qxOiBFmAMHWtAZDclZIobBBtrmMBgP8';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const params = new URLSearchParams(location.search);
+const qrCode = params.get('qr');
+const card = document.getElementById('card');
+
+let scanId = null;
+let reviewUrl = null;
+
+(async () => {
+  if (!qrCode) {
+    showError('Ongeldige QR code.');
+    return;
+  }
+
+  // Track scan
+  const { data: trackData, error: trackErr } = await sb.rpc('track_qr_scan', {
+    p_qr_code_id: qrCode,
+    p_user_agent: navigator.userAgent
+  });
+
+  if (trackErr || !trackData) {
+    showError('Deze QR code kon niet worden gevonden.');
+    return;
+  }
+
+  scanId = trackData.scan_id;
+  reviewUrl = trackData.google_review_url;
+
+  renderPage(trackData.employee_name, trackData.organization_name);
+})();
+
+function renderPage(employeeName, orgName) {
+  card.innerHTML = `
+    <div class="logo-mark"></div>
+    <div class="company-name">${escHtml(orgName || '')}</div>
+    <div class="employee-name">${escHtml(employeeName || '')}</div>
+    <div class="employee-fn">Bedankt voor je bezoek!</div>
+    <div class="stars">
+      <span class="star">★</span>
+      <span class="star">★</span>
+      <span class="star">★</span>
+      <span class="star">★</span>
+      <span class="star">★</span>
+    </div>
+    <p class="cta-text">Was je tevreden? Help ons door een review achter te laten.</p>
+    <a class="btn-review" href="#" id="reviewBtn" onclick="handleClick(event)">
+      Schrijf een review ↗
+    </a>
+  `;
+}
+
+async function handleClick(e) {
+  e.preventDefault();
+
+  // Track click
+  if (scanId) {
+    await sb.rpc('track_qr_click', { p_scan_id: scanId });
+  }
+
+  // Redirect to review page
+  const url = reviewUrl || 'https://g.page/r/CU4lcHHNxQ3lEBM/review';
+  window.location.href = url;
+}
+
+function showError(msg) {
+  card.innerHTML = `
+    <div class="logo-mark"></div>
+    <div class="error-state">${escHtml(msg)}<br><br>Neem contact op met de vestiging.</div>
+  `;
+}
+
+function escHtml(str) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(str));
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lofly — Reviews</title>
+  <link rel="stylesheet" href="css/lofly.css">
+</head>
+<body>
+
+<div class="app-layout" id="appLayout" style="display:none">
+  <!-- Sidebar injected by JS -->
+  <div id="sidebarContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Reviews</h1>
+        <p class="page-subtitle" id="orgName">Laden...</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn btn-secondary btn-sm" onclick="fetchReviews()">↻ Vernieuwen</button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs" id="reviewTabs">
+      <button class="tab-btn active" data-status="" onclick="setTab(this,'')">
+        Alle <span class="tab-count" id="count-all">0</span>
+      </button>
+      <button class="tab-btn" data-status="pending" onclick="setTab(this,'pending')">
+        Te behandelen <span class="tab-count" id="count-pending">0</span>
+      </button>
+      <button class="tab-btn" data-status="approved" onclick="setTab(this,'approved')">
+        Goedgekeurd <span class="tab-count" id="count-approved">0</span>
+      </button>
+      <button class="tab-btn" data-status="posted" onclick="setTab(this,'posted')">
+        Geplaatst <span class="tab-count" id="count-posted">0</span>
+      </button>
+      <button class="tab-btn" data-status="rejected" onclick="setTab(this,'rejected')">
+        Afgewezen <span class="tab-count" id="count-rejected">0</span>
+      </button>
+    </div>
+
+    <!-- Filters row -->
+    <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
+      <select class="form-control" id="filterSource" style="width:160px" onchange="applyFilters()">
+        <option value="">Alle portals</option>
+        <option value="google">Google</option>
+        <option value="klantenvertellen">Klantenvertellen</option>
+      </select>
+      <select class="form-control" id="filterRating" style="width:140px" onchange="applyFilters()">
+        <option value="">Alle sterren</option>
+        <option value="5">5 sterren</option>
+        <option value="4">4 sterren</option>
+        <option value="3">3 sterren</option>
+        <option value="2">2 sterren</option>
+        <option value="1">1 ster</option>
+      </select>
+      <select class="form-control" id="filterEmployee" style="width:180px" onchange="applyFilters()">
+        <option value="">Alle medewerkers</option>
+      </select>
+      <input class="form-control" type="text" id="filterSearch" placeholder="Zoek op naam of tekst..." style="flex:1;min-width:200px" oninput="applyFilters()">
+    </div>
+
+    <!-- Reviews table -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="table-wrap">
+        <table id="reviewsTable">
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Klant</th>
+              <th>Portal</th>
+              <th>Beoordeling</th>
+              <th>Status</th>
+              <th>Medewerker</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="reviewsBody">
+            <tr><td colspan="7" class="loading-overlay">Laden...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Review Edit Modal -->
+<div class="modal-backdrop hidden" id="reviewModal">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <div>
+        <h2 class="modal-title" id="modalReviewerName">Review</h2>
+        <div id="modalMeta" style="font-size:12px;color:#6b7280;margin-top:3px"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div>
+        <div class="review-section-label">Review tekst</div>
+        <div class="review-text-box" id="modalReviewText">—</div>
+      </div>
+      <div>
+        <div class="review-section-label">AI-suggestie</div>
+        <div class="review-text-box" id="modalAIResponse" style="color:#4b5563">—</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Definitieve reactie</label>
+      <textarea class="form-control" id="modalFinalResponse" rows="4" placeholder="Bewerk de AI-suggestie of schrijf een eigen reactie..."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Koppel aan medewerker</label>
+      <select class="form-control" id="modalEmployee">
+        <option value="">Geen medewerker</option>
+      </select>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="updateReviewStatus('rejected')">Afwijzen</button>
+      <button class="btn btn-secondary" onclick="closeModal()">Annuleren</button>
+      <button class="btn btn-secondary" onclick="updateReviewStatus('approved')">Goedkeuren</button>
+      <button class="btn btn-primary" onclick="postReview()">
+        <span id="postBtnText">Plaatsen</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script>
+let profile = null;
+let allReviews = [];
+let currentStatus = '';
+let currentReviewId = null;
+let employees = [];
+
+// ============================================================
+// Init
+// ============================================================
+(async () => {
+  const user = await requireAuth('index.html');
+  if (!user) return;
+
+  profile = await getCurrentProfile();
+  if (!profile) { signOut(); return; }
+
+  document.getElementById('orgName').textContent = profile.organizations?.name || '';
+  document.getElementById('appLayout').style.display = 'flex';
+  document.getElementById('sidebarContainer').innerHTML = renderNav('reviews');
+
+  await Promise.all([loadEmployees(), fetchReviews()]);
+})();
+
+// ============================================================
+// Load employees (for filter + modal)
+// ============================================================
+async function loadEmployees() {
+  const { data } = await getSupabase()
+    .from('employees')
+    .select('id, name')
+    .order('name');
+
+  employees = data || [];
+
+  // Populate filter dropdown
+  const filterSel = document.getElementById('filterEmployee');
+  employees.forEach(e => {
+    filterSel.innerHTML += `<option value="${e.id}">${e.name}</option>`;
+  });
+
+  // Populate modal dropdown
+  const modalSel = document.getElementById('modalEmployee');
+  employees.forEach(e => {
+    modalSel.innerHTML += `<option value="${e.id}">${e.name}</option>`;
+  });
+}
+
+// ============================================================
+// Fetch reviews
+// ============================================================
+async function fetchReviews() {
+  const tbody = document.getElementById('reviewsBody');
+  tbody.innerHTML = '<tr><td colspan="7" class="loading-overlay">Laden...</td></tr>';
+
+  const { data, error } = await getSupabase()
+    .from('reviews')
+    .select('*, employees(name)')
+    .order('review_date', { ascending: false });
+
+  if (error) {
+    tbody.innerHTML = `<tr><td colspan="7" style="padding:24px;color:#dc2626">Fout bij laden: ${error.message}</td></tr>`;
+    return;
+  }
+
+  allReviews = data || [];
+  updateCounts();
+  applyFilters();
+}
+
+// ============================================================
+// Update tab counts
+// ============================================================
+function updateCounts() {
+  document.getElementById('count-all').textContent = allReviews.length;
+  ['pending','approved','posted','rejected'].forEach(s => {
+    document.getElementById(`count-${s}`).textContent =
+      allReviews.filter(r => r.status === s).length;
+  });
+}
+
+// ============================================================
+// Tab switching
+// ============================================================
+function setTab(btn, status) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentStatus = status;
+  applyFilters();
+}
+
+// ============================================================
+// Apply filters
+// ============================================================
+function applyFilters() {
+  const source = document.getElementById('filterSource').value;
+  const rating = document.getElementById('filterRating').value;
+  const employeeId = document.getElementById('filterEmployee').value;
+  const search = document.getElementById('filterSearch').value.toLowerCase();
+
+  let filtered = allReviews.filter(r => {
+    if (currentStatus && r.status !== currentStatus) return false;
+    if (source && r.source !== source) return false;
+    if (rating && String(r.star_rating) !== rating) return false;
+    if (employeeId && r.employee_id !== employeeId) return false;
+    if (search) {
+      const haystack = `${r.reviewer_name || ''} ${r.review_text || ''}`.toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
+  });
+
+  renderTable(filtered);
+}
+
+// ============================================================
+// Render table
+// ============================================================
+function renderTable(reviews) {
+  const tbody = document.getElementById('reviewsBody');
+
+  if (!reviews.length) {
+    tbody.innerHTML = `
+      <tr><td colspan="7">
+        <div class="empty-state">
+          <div class="empty-state-icon">📭</div>
+          <div class="empty-state-title">Geen reviews gevonden</div>
+          <div class="empty-state-sub">Pas de filters aan of wacht op nieuwe reviews.</div>
+        </div>
+      </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = reviews.map(r => `
+    <tr>
+      <td style="color:#6b7280;white-space:nowrap">${formatDate(r.review_date)}</td>
+      <td>
+        <div class="font-semibold">${escHtml(r.reviewer_name || 'Anoniem')}</div>
+        ${r.review_text ? `<div class="text-muted truncate" style="font-size:12px">${escHtml(r.review_text.substring(0,60))}${r.review_text.length>60?'…':''}</div>` : ''}
+      </td>
+      <td>${getSourceBadge(r.source)}</td>
+      <td>${renderStars(r.star_rating)}</td>
+      <td>${getStatusBadge(r.status)}</td>
+      <td style="color:#6b7280">${r.employees?.name || '—'}</td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick="openModal('${r.id}')">Behandelen</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ============================================================
+// Modal
+// ============================================================
+function openModal(reviewId) {
+  const r = allReviews.find(x => x.id === reviewId);
+  if (!r) return;
+  currentReviewId = reviewId;
+
+  document.getElementById('modalReviewerName').textContent = r.reviewer_name || 'Anonieme reviewer';
+  document.getElementById('modalMeta').innerHTML =
+    `${getSourceBadge(r.source)} ${renderStars(r.star_rating)} <span style="margin-left:8px">${formatDate(r.review_date)}</span>`;
+  document.getElementById('modalReviewText').textContent = r.review_text || '(Geen tekst)';
+  document.getElementById('modalAIResponse').textContent = r.ai_response || '(Nog geen AI-suggestie gegenereerd)';
+  document.getElementById('modalFinalResponse').value = r.final_response || r.ai_response || '';
+  document.getElementById('modalEmployee').value = r.employee_id || '';
+  document.getElementById('postBtnText').textContent = r.status === 'posted' ? 'Herplaatsen' : 'Plaatsen';
+
+  document.getElementById('reviewModal').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('reviewModal').classList.add('hidden');
+  currentReviewId = null;
+}
+
+// Close modal on backdrop click
+document.getElementById('reviewModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+// ============================================================
+// Update review status
+// ============================================================
+async function updateReviewStatus(status) {
+  if (!currentReviewId) return;
+  const finalResponse = document.getElementById('modalFinalResponse').value.trim();
+  const employeeId = document.getElementById('modalEmployee').value || null;
+
+  const { error } = await getSupabase()
+    .from('reviews')
+    .update({ status, final_response: finalResponse || null, employee_id: employeeId, updated_at: new Date().toISOString() })
+    .eq('id', currentReviewId);
+
+  if (error) { showToast('Fout: ' + error.message, 'error'); return; }
+
+  showToast('Status bijgewerkt', 'success');
+  closeModal();
+  fetchReviews();
+}
+
+// ============================================================
+// Post review (calls Cloudflare Worker reply-poster)
+// ============================================================
+async function postReview() {
+  if (!currentReviewId) return;
+  const r = allReviews.find(x => x.id === currentReviewId);
+  if (!r) return;
+
+  const finalResponse = document.getElementById('modalFinalResponse').value.trim();
+  if (!finalResponse) { showToast('Voer eerst een reactie in', 'error'); return; }
+
+  document.getElementById('postBtnText').textContent = 'Bezig...';
+
+  // Save final response + approve first
+  await getSupabase()
+    .from('reviews')
+    .update({ final_response: finalResponse, status: 'approved' })
+    .eq('id', currentReviewId);
+
+  // Call reply-poster worker
+  try {
+    const resp = await fetch(`${WORKERS_BASE_URL}/post-reply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ review_id: currentReviewId })
+    });
+    const json = await resp.json();
+    if (json.success) {
+      showToast('Reactie geplaatst!', 'success');
+      closeModal();
+      fetchReviews();
+    } else {
+      showToast('Fout bij plaatsen: ' + (json.error || 'onbekend'), 'error');
+      document.getElementById('postBtnText').textContent = 'Plaatsen';
+    }
+  } catch {
+    // Worker not yet deployed — mark as approved locally
+    showToast('Worker niet beschikbaar. Review goedgekeurd maar nog niet geplaatst.', 'info');
+    await updateReviewStatus('approved');
+  }
+}
+
+// ============================================================
+// Utility
+// ============================================================
+function escHtml(str) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(str));
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>

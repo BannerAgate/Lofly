@@ -1,0 +1,14 @@
+name = "lofly-review-ingestor"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+SUPABASE_URL = "https://abvxyvtglpjslqrocmwe.supabase.co"
+
+# Cron: every 15 minutes
+[triggers]
+crons = ["*/15 * * * *"]
+
+# Secrets (set via wrangler secret put):
+# SUPABASE_SERVICE_KEY
+# ANTHROPIC_API_KEY     (optionally call AI worker directly)

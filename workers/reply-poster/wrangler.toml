@@ -1,0 +1,11 @@
+name = "lofly-reply-poster"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+SUPABASE_URL = "https://abvxyvtglpjslqrocmwe.supabase.co"
+
+# Secrets (set via wrangler secret put):
+# SUPABASE_SERVICE_KEY
+# GOOGLE_CLIENT_ID
+# GOOGLE_CLIENT_SECRET
