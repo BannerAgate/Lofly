@@ -729,19 +729,4 @@ textarea.form-control { resize: vertical; min-height: 100px; }
 .gap-3 { gap: 12px; }
 .mt-1 { margin-top: 4px; }
 .mt-2 { margin-top: 8px; }
-.mt-4 { margin-top: 16px; }
-.mb-4 { margin-bottom: 16px; }
-.truncate { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 220px; }
-.hidden { display: none !important; }
-.w-full { width: 100%; }
-
-/* ============================================================
-   Responsive
-   ============================================================ */
-@media (max-width: 768px) {
-  .sidebar { width: 60px; }
-  .nav-label, .logo-text { display: none; }
-  .main-content { padding: 16px; }
-  .review-expand-inner { grid-template-columns: 1fr; }
-  .stats-grid { grid-template-columns: 1fr 1fr; }
-}
+.mt-4 { margin-to
