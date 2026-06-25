@@ -99,16 +99,12 @@ async function postKlantenvertellen(env, review, org) {
     return false;
   }
 
-  // tenantId is a Long (number) in KV API
+  // tenantId is optioneel — wordt meegestuurd als ingevuld, anders weggelaten
   const tenantId = org.kv_tenant_id ? parseInt(org.kv_tenant_id) : null;
-  if (!tenantId) {
-    console.error('kv_tenant_id not set');
-    return false;
-  }
 
   const body = {
     locationId: String(org.kv_location_id),
-    tenantId: tenantId,
+    ...(tenantId && { tenantId }),
     reviewId: review.external_id,
     response: review.final_response,
     reviewResponseType: 'PUBLIC',

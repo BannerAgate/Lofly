@@ -104,10 +104,7 @@
         <div class="review-text-box" id="modalReviewText">—</div>
       </div>
       <div>
-        <div class="review-section-label" style="display:flex;justify-content:space-between;align-items:center">
-          <span>Suggestie van Lofly Agent</span>
-          <button class="btn btn-secondary btn-sm" id="generateAIBtn" onclick="generateAISuggestion()" style="font-size:12px;padding:4px 10px">✨ Genereer</button>
-        </div>
+        <div class="review-section-label">AI Suggestie</div>
         <div class="review-text-box" id="modalAIResponse" style="color:#4b5563">—</div>
       </div>
     </div>
@@ -406,121 +403,7 @@ async function postReview() {
   }
 }
 
-// ============================================================
-// AI suggestie genereren
-// ============================================================
-async function generateAISuggestion() {
-  if (!currentReviewId) return;
-  const r = allReviews.find(x => x.id === currentReviewId);
-  if (!r) return;
-
-  const btn = document.getElementById('generateAIBtn');
-  btn.disabled = true;
-  btn.textContent = '⏳ Genereren...';
-
-  // Probeer de Worker eerst
-  const workerConfigured = !WORKERS_BASE_URL.includes('YOUR_ACCOUNT');
-  if (workerConfigured) {
-    try {
-      const resp = await fetch(`${WORKERS_BASE_URL}/generate-response`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ review_id: currentReviewId })
-      });
-      const data = await resp.json();
-      if (data.ai_response) {
-        document.getElementById('modalAIResponse').textContent = data.ai_response;
-        document.getElementById('modalFinalResponse').value = data.ai_response;
-        btn.textContent = '✨ Genereer';
-        btn.disabled = false;
-        return;
-      }
-    } catch (e) { /* valt terug op lokale generatie */ }
-  }
-
-  // Worker niet beschikbaar — genereer lokaal via Supabase + Claude API key
-  try {
-    // Haal API key + prompt + response library op
-    const [{ data: org }, { data: library }] = await Promise.all([
-      getSupabase()
-        .from('organizations')
-        .select('claude_api_key, claude_ai_prompt')
-        .eq('id', profile.organization_id)
-        .single(),
-      getSupabase()
-        .from('response_library')
-        .select('response_text, response_type, star_rating')
-        .eq('organization_id', profile.organization_id)
-        .order('created_at', { ascending: false })
-        .limit(20)
-    ]);
-
-    if (!org?.claude_api_key) {
-      showToast('Vul eerst een Claude API key in via Instellingen → AI', 'error');
-      btn.textContent = '✨ Genereer'; btn.disabled = false;
-      return;
-    }
-
-    // Bouw response library teksten op (vervangt {{18.text}} en {{20.text}})
-    const refined  = (library || []).filter(x => x.response_type === 'manual').map(x => x.response_text).join('\n---\n');
-    const approved = (library || []).filter(x => x.response_type !== 'manual').map(x => x.response_text).join('\n---\n');
-
-    // Vervang Make.com variabelen in de opgeslagen prompt
-    let systemPrompt = org.claude_ai_prompt || 'Je bent een vriendelijke klantenservice medewerker van Auto Smeeing. Beantwoord reviews professioneel in het Nederlands.';
-    systemPrompt = systemPrompt
-      .replace('{{18.text}}', refined  || '(Nog geen verfijnde antwoorden beschikbaar)')
-      .replace('{{20.text}}', approved || '(Nog geen goedgekeurde antwoorden beschikbaar)');
-
-    // User bericht met reviewgegevens (vervangt {{1.*}} variabelen)
-    const reviewerName = r.reviewer_name || 'Klant';
-    const starLabel = ['', 'één', 'twee', 'drie', 'vier', 'vijf'][r.star_rating] || r.star_rating;
-    const userMsg = `Naam: ${reviewerName}\nScore: ${r.star_rating} sterren\nReview: ${r.review_text || '(geen tekst)'}`;
-
-
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': org.claude_api_key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-8',
-        max_tokens: 600,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userMsg }]
-      })
-    });
-
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error.message);
-
-    const aiText = data.content?.[0]?.text || '';
-    if (!aiText) throw new Error('Geen reactie ontvangen');
-
-    // Sla op in Supabase
-    await getSupabase()
-      .from('reviews')
-      .update({ ai_response: aiText, updated_at: new Date().toISOString() })
-      .eq('id', currentReviewId);
-
-    // Update UI
-    document.getElementById('modalAIResponse').textContent = aiText;
-    document.getElementById('modalFinalResponse').value = aiText;
-
-    // Update lokale cache
-    const idx = allReviews.findIndex(x => x.id === currentReviewId);
-    if (idx !== -1) allReviews[idx].ai_response = aiText;
-
-    showToast('AI reactie gegenereerd!', 'success');
-  } catch (err) {
-    showToast('Fout: ' + err.message, 'error');
-  }
-
-  btn.textContent = '✨ Genereer';
-  btn.disabled = false;
-}
+// AI suggestie wordt automatisch gegenereerd via Make.com bij binnenkomst van een review.
 
 // ============================================================
 // Utility

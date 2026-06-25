@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lofly — Inloggen</title>
+  <link rel="stylesheet" href="css/lofly.css">
+</head>
+<body>
+
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-mark"></div>
+      <span class="auth-logo-text">Lofly</span>
+    </div>
+
+    <h1 class="auth-title">Welkom terug</h1>
+    <p class="auth-sub">Log in op je account</p>
+
+    <div class="auth-error" id="authError"></div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label class="form-label" for="email">E-mailadres</label>
+        <input class="form-control" type="email" id="email" placeholder="naam@bedrijf.nl" required autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="password">Wachtwoord</label>
+        <input class="form-control" type="password" id="password" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="auth-submit" id="submitBtn">
+        Inloggen
+      </button>
+    </form>
+
+    <p style="text-align:center; margin-top:16px; font-size:13px; color:#6b7280;">
+      Nog geen account? Neem contact op met je beheerder.
+    </p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script>
+(async () => {
+  // If already logged in, redirect to reviews
+  const user = await getCurrentUser();
+  if (user) window.location.href = 'reviews.html';
+})();
+
+const form = document.getElementById('loginForm');
+const errorEl = document.getElementById('authError');
+const submitBtn = document.getElementById('submitBtn');
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  errorEl.style.display = 'none';
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Bezig...';
+
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  const { error } = await getSupabase().auth.signInWithPassword({ email, password });
+
+  if (error) {
+    errorEl.textContent = 'Ongeldig e-mailadres of wachtwoord.';
+    errorEl.style.display = 'block';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Inloggen';
+  } else {
+    window.location.href = '/dev/v1/reviews.html';
+  }
+});
+</script>
+</body>
+</html>
