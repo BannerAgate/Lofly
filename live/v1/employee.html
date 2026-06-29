@@ -184,7 +184,7 @@ async function loadEmployee() {
   document.getElementById('empAvatar').textContent = emp.name.charAt(0).toUpperCase();
 
   // QR — always use the canonical production URL so the QR works everywhere
-  const qrUrl = `https://lofly-dev.pages.dev/live/v1/redirect.html?qr=${emp.qr_code_id}`;
+  const qrUrl = `https://loflyapp.com/redirect.html?qr=${emp.qr_code_id}`;
   document.getElementById('qrCodeId').textContent = emp.qr_code_id.substring(0, 12) + '...';
   try {
     const qrContainer = document.getElementById('qrCanvas');

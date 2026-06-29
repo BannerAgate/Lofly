@@ -140,7 +140,7 @@ function renderEmployees() {
     const empAvg = empRevs.length
       ? (empRevs.reduce((a, r) => a + r.star_rating, 0) / empRevs.length).toFixed(1)
       : '—';
-    const qrUrl = `https://lofly-dev.pages.dev/live/v1/redirect.html?qr=${emp.qr_code_id}`;
+    const qrUrl = `https://loflyapp.com/redirect.html?qr=${emp.qr_code_id}`;
 
     return `
       <tr>
