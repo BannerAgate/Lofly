@@ -6,6 +6,9 @@
   <title>Lofly — Reviews</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="css/lofly.css">
+  <style>
+    .date-filter-label { font-size:12px;font-weight:600;color:#6b7280;display:block;margin-bottom:3px; }
+  </style>
 </head>
 <body>
 
@@ -44,7 +47,15 @@
     </div>
 
     <!-- Filters row -->
-    <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
+    <div style="display:flex;gap:10px;margin-bottom:16px;align-items:flex-end;flex-wrap:wrap">
+      <div>
+        <label class="date-filter-label" for="dateFrom">Van</label>
+        <input type="date" class="form-control" id="dateFrom" style="width:150px" onchange="applyFilters()">
+      </div>
+      <div>
+        <label class="date-filter-label" for="dateTo">Tot</label>
+        <input type="date" class="form-control" id="dateTo" style="width:150px" onchange="applyFilters()">
+      </div>
       <select class="form-control" id="filterSource" style="width:160px" onchange="applyFilters()">
         <option value="">Alle portals</option>
         <option value="google">Google</option>
@@ -238,12 +249,16 @@ function applyFilters() {
   const rating = document.getElementById('filterRating').value;
   const employeeId = document.getElementById('filterEmployee').value;
   const search = document.getElementById('filterSearch').value.toLowerCase();
+  const dateFrom = document.getElementById('dateFrom').value;
+  const dateTo = document.getElementById('dateTo').value;
 
   let filtered = allReviews.filter(r => {
     if (currentStatus && r.status !== currentStatus) return false;
     if (source && r.source !== source) return false;
     if (rating && String(r.star_rating) !== rating) return false;
     if (employeeId && r.employee_id !== employeeId) return false;
+    if (dateFrom && r.review_date && r.review_date.slice(0,10) < dateFrom) return false;
+    if (dateTo && r.review_date && r.review_date.slice(0,10) > dateTo) return false;
     if (search) {
       const haystack = `${r.reviewer_name || ''} ${r.review_text || ''}`.toLowerCase();
       if (!haystack.includes(search)) return false;
@@ -341,10 +356,12 @@ async function updateReviewStatus(status) {
 }
 
 // ============================================================
-// Post review (via Make.com webhook)
+// Post review
+// KV     → Supabase Edge Function (geen newline/JSON-escape issue)
+// Google → Make.com webhook
 // ============================================================
 const MAKE_WEBHOOK_GOOGLE = 'https://hook.eu1.make.com/gtb37ln62lkii83utidecdovgcnrvtik';
-const MAKE_WEBHOOK_KV     = 'https://hook.eu1.make.com/2ax5llcqkvoswpd8nm92a7ukuf8kldxm';
+const EDGE_FN_POST_KV     = `${SUPABASE_URL}/functions/v1/post-kv-reply`;
 
 async function postReview() {
   if (!currentReviewId) return;
@@ -357,33 +374,43 @@ async function postReview() {
   const employeeId = document.getElementById('modalEmployee').value || null;
   document.getElementById('postBtnText').textContent = 'Bezig...';
 
-  // Sla definitieve reactie op in Supabase
+  // Sla definitieve reactie op in Supabase (Edge Function leest deze op)
   await getSupabase()
     .from('reviews')
     .update({ final_response: finalResponse, employee_id: employeeId, status: 'approved', updated_at: new Date().toISOString() })
     .eq('id', currentReviewId);
 
-  // Bepaal het juiste Make.com webhook o.b.v. portal
-  const webhookUrl = r.source === 'google' ? MAKE_WEBHOOK_GOOGLE :
-                     r.source === 'klantenvertellen' ? MAKE_WEBHOOK_KV : null;
-
-  if (!webhookUrl) {
-    showToast('Onbekende portal: ' + r.source, 'error');
-    document.getElementById('postBtnText').textContent = 'Plaatsen';
-    return;
-  }
-
   try {
-    await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        review_id: currentReviewId,
-        external_id: r.external_id,
-        response_text: finalResponse,
-        source: r.source
-      })
-    });
+    if (r.source === 'klantenvertellen') {
+      // Edge Function haalt final_response zelf op — geen Make.com template escaping
+      const { data: { session } } = await getSupabase().auth.getSession();
+      const res = await fetch(EDGE_FN_POST_KV, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ review_id: currentReviewId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+    } else if (r.source === 'google') {
+      await fetch(MAKE_WEBHOOK_GOOGLE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          review_id: currentReviewId,
+          external_id: r.external_id,
+          response_text: finalResponse,
+          source: r.source,
+        }),
+      });
+    } else {
+      throw new Error('Onbekende bron: ' + r.source);
+    }
 
     // Voeg toe aan response_library voor toekomstige AI-suggesties
     await getSupabase().from('response_library').insert({
@@ -395,4 +422,16 @@ async function postReview() {
       source: r.source,
     });
 
-    showToast('Reactie verstuurd naar Make.com
+    showToast('Reactie geplaatst door Lofly');
+    document.getElementById('postBtnText').textContent = 'Herplaatsen';
+    closeModal();
+    fetchReviews();
+  } catch (err) {
+    console.error('postReview fout:', err);
+    showToast('Fout bij plaatsen: ' + err.message, 'error');
+    document.getElementById('postBtnText').textContent = 'Plaatsen';
+  }
+}
+</script>
+</body>
+</html>
