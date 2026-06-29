@@ -221,13 +221,14 @@ async function fetchReviews() {
 }
 
 // ============================================================
-// Update tab counts
+// Update tab counts (based on active filters, excluding status)
 // ============================================================
-function updateCounts() {
-  document.getElementById('count-all').textContent = allReviews.length;
+function updateCounts(baseFiltered) {
+  const set = baseFiltered || allReviews;
+  document.getElementById('count-all').textContent = set.length;
   ['pending','approved','posted','rejected'].forEach(s => {
     document.getElementById(`count-${s}`).textContent =
-      allReviews.filter(r => r.status === s).length;
+      set.filter(r => r.status === s).length;
   });
 }
 
@@ -252,8 +253,8 @@ function applyFilters() {
   const dateFrom = document.getElementById('dateFrom').value;
   const dateTo = document.getElementById('dateTo').value;
 
-  let filtered = allReviews.filter(r => {
-    if (currentStatus && r.status !== currentStatus) return false;
+  // Base set: all non-status filters applied (used for tab counts)
+  const base = allReviews.filter(r => {
     if (source && r.source !== source) return false;
     if (rating && String(r.star_rating) !== rating) return false;
     if (employeeId && r.employee_id !== employeeId) return false;
@@ -266,6 +267,10 @@ function applyFilters() {
     return true;
   });
 
+  updateCounts(base);
+
+  // Filtered set: also apply status
+  const filtered = currentStatus ? base.filter(r => r.status === currentStatus) : base;
   renderTable(filtered);
 }
 
