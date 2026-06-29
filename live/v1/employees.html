@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lofly — Medewerkers</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="css/lofly.css">
+</head>
+<body>
+
+<div class="app-layout" id="appLayout" style="display:none">
+  <div id="sidebarContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Medewerkers</h1>
+        <p class="page-subtitle" id="orgName"></p>
+      </div>
+      <button class="btn btn-primary" onclick="openAddModal()">+ Medewerker toevoegen</button>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="table-wrap">
+        <table id="employeesTable">
+          <thead>
+            <tr>
+              <th>Naam</th>
+              <th>Functie</th>
+              <th>QR Code</th>
+              <th>Scans</th>
+              <th>Klikken</th>
+              <th>Reviews</th>
+              <th>Gem. ★</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="employeesBody">
+            <tr><td colspan="8" class="loading-overlay">Laden...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Add/Edit Employee Modal -->
+<div class="modal-backdrop hidden" id="employeeModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modalTitle">Medewerker toevoegen</h2>
+      <button class="modal-close" onclick="closeEmpModal()">✕</button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Naam *</label>
+      <input class="form-control" id="empName" type="text" placeholder="Jan Jansen" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Functietitel</label>
+      <input class="form-control" id="empFunction" type="text" placeholder="Monteur">
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeEmpModal()">Annuleren</button>
+      <button class="btn btn-primary" onclick="saveEmployee()" id="saveEmpBtn">Opslaan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-backdrop hidden" id="deleteModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <h2 class="modal-title">Medewerker verwijderen</h2>
+      <button class="modal-close" onclick="closeDeleteModal()">✕</button>
+    </div>
+    <p style="color:#6b7280;font-size:13.5px">Weet je zeker dat je <strong id="deleteName"></strong> wilt verwijderen? QR-scans en gekoppelde reviews blijven bewaard.</p>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeDeleteModal()">Annuleren</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Verwijderen</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script>
+let profile = null;
+let employees = [];
+let reviews = [];
+let scans = [];
+let editingId = null;
+let deletingId = null;
+
+(async () => {
+  const user = await requireAuth('index.html');
+  if (!user) return;
+  profile = await getCurrentProfile();
+  if (!profile) { signOut(); return; }
+  document.getElementById('orgName').textContent = profile.organizations?.name || '';
+  document.getElementById('appLayout').style.display = 'flex';
+  document.getElementById('sidebarContainer').innerHTML = renderNav('employees');
+  await loadData();
+})();
+
+async function loadData() {
+  const [empRes, revRes, scanRes] = await Promise.all([
+    getSupabase().from('employees').select('*').order('name'),
+    getSupabase().from('reviews').select('id, employee_id, star_rating'),
+    getSupabase().from('qr_scans').select('id, employee_id, button_clicked')
+  ]);
+
+  employees = empRes.data || [];
+  reviews = revRes.data || [];
+  scans = scanRes.data || [];
+
+  renderEmployees();
+}
+
+function renderEmployees() {
+  const tbody = document.getElementById('employeesBody');
+  if (!employees.length) {
+    tbody.innerHTML = `
+      <tr><td colspan="8">
+        <div class="empty-state">
+          <div class="empty-state-icon">👤</div>
+          <div class="empty-state-title">Nog geen medewerkers</div>
+          <div class="empty-state-sub">Voeg medewerkers toe om QR-codes te genereren.</div>
+        </div>
+      </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = employees.map(emp => {
+    const empScans = scans.filter(s => s.employee_id === emp.id);
+    const empClicks = empScans.filter(s => s.button_clicked).length;
+    const empRevs = reviews.filter(r => r.employee_id === emp.id);
+    const empAvg = empRevs.length
+      ? (empRevs.reduce((a, r) => a + r.star_rating, 0) / empRevs.length).toFixed(1)
+      : '—';
+    const qrUrl = `https://lofly-dev.pages.dev/live/v1/redirect.html?qr=${emp.qr_code_id}`;
+
+    return `
+      <tr>
+        <td>
+          <a href="employee.html?id=${emp.id}" class="font-semibold" style="color:#1a2335">${escHtml(emp.name)}</a>
+        </td>
+        <td style="color:#6b7280">${escHtml(emp.function_title || '—')}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <code style="font-size:11px;color:#6b7280;background:#f3f4f6;padding:2px 6px;border-radius:4px">${emp.qr_code_id ? emp.qr_code_id.substring(0,12) + '...' : '—'}</code>
+            ${emp.qr_code_id ? `<button class="btn-icon btn" title="Kopieer QR URL" onclick="copyQR('${qrUrl}')">⎘</button>` : ''}
+          </div>
+        </td>
+        <td>${empScans.length}</td>
+        <td>${empClicks}</td>
+        <td>${empRevs.length}</td>
+        <td>${empAvg !== '—' ? empAvg + ' ★' : '—'}</td>
+        <td style="display:flex;gap:6px">
+          <a href="employee.html?id=${emp.id}" class="btn btn-secondary btn-sm">Detail</a>
+          <button class="btn btn-secondary btn-sm" onclick="openEditModal('${emp.id}')">✎</button>
+          <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${emp.id}')">✕</button>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+async function copyQR(url) {
+  await navigator.clipboard.writeText(url);
+  showToast('QR URL gekopieerd!');
+}
+
+// ============================================================
+// Add / Edit modal
+// ============================================================
+function openAddModal() {
+  editingId = null;
+  document.getElementById('modalTitle').textContent = 'Medewerker toevoegen';
+  document.getElementById('empName').value = '';
+  document.getElementById('empFunction').value = '';
+  document.getElementById('employeeModal').classList.remove('hidden');
+}
+
+function openEditModal(id) {
+  const emp = employees.find(e => e.id === id);
+  if (!emp) return;
+  editingId = id;
+  document.getElementById('modalTitle').textContent = 'Medewerker bewerken';
+  document.getElementById('empName').value = emp.name;
+  document.getElementById('empFunction').value = emp.function_title || '';
+  document.getElementById('employeeModal').classList.remove('hidden');
+}
+
+function closeEmpModal() {
+  document.getElementById('employeeModal').classList.add('hidden');
+  editingId = null;
+}
+
+async function saveEmployee() {
+  const name = document.getElementById('empName').value.trim();
+  const fn = document.getElementById('empFunction').value.trim();
+  if (!name) { showToast('Naam is verplicht', 'error'); return; }
+
+  document.getElementById('saveEmpBtn').disabled = true;
+
+  let error;
+  if (editingId) {
+    ({ error } = await getSupabase()
+      .from('employees')
+      .update({ name, function_title: fn || null })
+      .eq('id', editingId));
+  } else {
+    ({ error } = await getSupabase()
+      .from('employees')
+      .insert({ name, function_title: fn || null, organization_id: profile.organization_id }));
+  }
+
+  document.getElementById('saveEmpBtn').disabled = false;
+  if (error) { showToast('Fout: ' + error.message, 'error'); return; }
+  showToast(editingId ? 'Medewerker bijgewerkt' : 'Medewerker toegevoegd');
+  closeEmpModal();
+  await loadData();
+}
+
+// ============================================================
+// Delete
+// ============================================================
+function openDeleteModal(id) {
+  const emp = employees.find(e => e.id === id);
+  deletingId = id;
+  document.getElementById('deleteName').textContent = emp?.name || '';
+  document.getElementById('deleteModal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+  document.getElementById('deleteModal').classList.add('hidden');
+  deletingId = null;
+}
+
+async function confirmDelete() {
+  if (!deletingId) return;
+  const { error } = await getSupabase().from('employees').delete().eq('id', deletingId);
+  if (error) { showToast('Fout: ' + error.message, 'error'); return; }
+  showToast('Medewerker verwijderd');
+  closeDeleteModal();
+  await loadData();
+}
+
+function escHtml(str) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(str));
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>
