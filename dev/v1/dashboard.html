@@ -322,4 +322,22 @@ function renderEmployeeTable(employees, reviews, scans) {
     const empScans = scans.filter(s => s.employee_id === emp.id);
     const empClicks = empScans.filter(s => s.button_clicked).length;
     const empReviews = reviews.filter(r => r.employee_id === emp.id);
-    const empAvg = empReviews.len
+    const empAvg = empReviews.length
+      ? (empReviews.reduce((a, r) => a + r.star_rating, 0) / empReviews.length).toFixed(1)
+      : '—';
+    return { emp, scans: empScans.length, clicks: empClicks, reviews: empReviews.length, avg: empAvg };
+  }).sort((a, b) => b.scans - a.scans);
+
+  tbody.innerHTML = rows.map(row => `
+    <tr>
+      <td><a href="employee.html?id=${row.emp.id}" style="font-weight:600;color:#1a2335">${escHtml(row.emp.name)}</a></td>
+      <td>${row.scans}</td>
+      <td>${row.clicks}</td>
+      <td>${row.reviews}</td>
+      <td>${row.avg !== '—' ? `${row.avg} ★` : '—'}</td>
+    </tr>
+  `).join('');
+}
+</script>
+</body>
+</html>
