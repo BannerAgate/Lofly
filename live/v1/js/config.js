@@ -42,9 +42,21 @@ let _authResolvers = [];
 // Auth helpers
 // ============================================================
 async function getCurrentUser() {
-  // Wait for onAuthStateChange INITIAL_SESSION (avoids race condition on page load)
   if (_authResolved) return _authUser;
-  return new Promise(resolve => { _authResolvers.push(resolve); });
+
+  // Race: onAuthStateChange vs getSession() — whichever resolves first wins
+  return new Promise((resolve) => {
+    _authResolvers.push(resolve);
+
+    getSupabase().auth.getSession().then(({ data: { session } }) => {
+      if (!_authResolved) {
+        _authUser = session?.user || null;
+        _authResolved = true;
+        _authResolvers.forEach(r => r(_authUser));
+        _authResolvers = [];
+      }
+    }).catch(() => {});
+  });
 }
 
 async function getCurrentProfile() {
