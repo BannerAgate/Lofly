@@ -3,6 +3,8 @@
    Colors: Navy #1a2335 | Orange #F97316 | White #ffffff
    ============================================================ */
 
+.hidden { display: none !important; }
+
 :root {
   --navy: #1a2335;
   --navy-light: #243045;
