@@ -157,21 +157,32 @@ let weeklyChart = null;
 let starsChart = null;
 
 (async () => {
-  // Set default date range: first of current month → today
-  const now = new Date();
-  const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const toYMD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  document.getElementById('dateFrom').value = toYMD(firstOfMonth);
-  document.getElementById('dateTo').value = toYMD(now);
+  try {
+    console.log('[Dashboard] init start');
+    // Set default date range: first of current month → today
+    const now = new Date();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const toYMD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    document.getElementById('dateFrom').value = toYMD(firstOfMonth);
+    document.getElementById('dateTo').value = toYMD(now);
+    console.log('[Dashboard] dates set');
 
-  const user = await requireAuth('index.html');
-  if (!user) return;
-  profile = await getCurrentProfile();
-  if (!profile) { signOut(); return; }
-  document.getElementById('orgName').textContent = profile.organizations?.name || '';
-  document.getElementById('appLayout').style.display = 'flex';
-  document.getElementById('sidebarContainer').innerHTML = renderNav('dashboard');
-  await loadDashboard();
+    const user = await requireAuth('index.html');
+    console.log('[Dashboard] user:', user?.id);
+    if (!user) return;
+    profile = await getCurrentProfile();
+    console.log('[Dashboard] profile:', profile?.id);
+    if (!profile) { signOut(); return; }
+    document.getElementById('orgName').textContent = profile.organizations?.name || '';
+    document.getElementById('appLayout').style.display = 'flex';
+    console.log('[Dashboard] layout shown');
+    document.getElementById('sidebarContainer').innerHTML = renderNav('dashboard');
+    console.log('[Dashboard] calling loadDashboard');
+    await loadDashboard();
+    console.log('[Dashboard] done');
+  } catch(e) {
+    console.error('[Dashboard] CRASH:', e);
+  }
 })();
 
 async function loadDashboard() {
