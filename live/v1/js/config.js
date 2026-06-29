@@ -22,9 +22,29 @@ function getSupabase() {
 // ============================================================
 // Auth helpers
 // ============================================================
+
+// Singleton promise — resolves zodra Supabase klaar is met initialiseren (INITIAL_SESSION)
+let _authReady = null;
+
 async function getCurrentUser() {
-  const { data: { session } } = await getSupabase().auth.getSession();
-  return session?.user || null;
+  if (!_authReady) {
+    _authReady = new Promise(resolve => {
+      const { data: { subscription } } = getSupabase().auth.onAuthStateChange((event, session) => {
+        if (event === 'INITIAL_SESSION') {
+          subscription.unsubscribe();
+          if (session?.user) {
+            resolve(session.user);
+          } else {
+            // Fallback: getSession() voor het geval INITIAL_SESSION te vroeg afvuurde
+            getSupabase().auth.getSession().then(({ data: { session: s } }) => {
+              resolve(s?.user || null);
+            });
+          }
+        }
+      });
+    });
+  }
+  return _authReady;
 }
 
 async function getCurrentProfile() {
