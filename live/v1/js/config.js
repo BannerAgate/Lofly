@@ -167,4 +167,11 @@ function renderNav(activePage) {
           <span class="nav-icon">⚙️</span>
           <span class="nav-label">Instellingen</span>
         </a>
-        <button 
+        <button class="nav-item nav-signout" onclick="signOut()">
+          <span class="nav-icon">↩</span>
+          <span class="nav-label">Uitloggen</span>
+        </button>
+      </div>
+    </nav>
+  `;
+}
