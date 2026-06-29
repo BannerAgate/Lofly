@@ -20,15 +20,31 @@ function getSupabase() {
 }
 
 // ============================================================
+// Auth state — wait for Supabase to restore session from storage
+// ============================================================
+let _authResolved = false;
+let _authUser = null;
+let _authResolvers = [];
+
+// onAuthStateChange fires INITIAL_SESSION on page load once session is ready
+(function() {
+  getSupabase().auth.onAuthStateChange((event, session) => {
+    _authUser = session?.user || null;
+    if (!_authResolved) {
+      _authResolved = true;
+      _authResolvers.forEach(r => r(_authUser));
+      _authResolvers = [];
+    }
+  });
+})();
+
+// ============================================================
 // Auth helpers
 // ============================================================
 async function getCurrentUser() {
-  // First try session (local, fast)
-  const { data: { session } } = await getSupabase().auth.getSession();
-  if (session?.user) return session.user;
-  // Fallback to server verification
-  const { data: { user } } = await getSupabase().auth.getUser();
-  return user;
+  // Wait for onAuthStateChange INITIAL_SESSION (avoids race condition on page load)
+  if (_authResolved) return _authUser;
+  return new Promise(resolve => { _authResolvers.push(resolve); });
 }
 
 async function getCurrentProfile() {
