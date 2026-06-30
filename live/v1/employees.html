@@ -102,6 +102,11 @@ let deletingId = null;
   document.getElementById('orgName').textContent = profile.organizations?.name || '';
   document.getElementById('appLayout').style.display = 'flex';
   document.getElementById('sidebarContainer').innerHTML = renderNav('employees');
+  // Verberg beheer-knoppen voor reviewer en readonly
+  if (!isAdmin(profile)) {
+    const addBtn = document.querySelector('[onclick="openAddModal()"]');
+    if (addBtn) addBtn.style.display = 'none';
+  }
   await loadData();
 })();
 
@@ -160,8 +165,8 @@ function renderEmployees() {
         <td>${empAvg !== '—' ? empAvg + ' ★' : '—'}</td>
         <td style="display:flex;gap:6px">
           <a href="employee.html?id=${emp.id}" class="btn btn-secondary btn-sm">Detail</a>
-          <button class="btn btn-secondary btn-sm" onclick="openEditModal('${emp.id}')">✎</button>
-          <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${emp.id}')">✕</button>
+          ${isAdmin(profile) ? `<button class="btn btn-secondary btn-sm" onclick="openEditModal('${emp.id}')">✎</button>` : ''}
+          ${isAdmin(profile) ? `<button class="btn btn-danger btn-sm" onclick="openDeleteModal('${emp.id}')">✕</button>` : ''}
         </td>
       </tr>`;
   }).join('');

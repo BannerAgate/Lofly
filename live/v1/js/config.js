@@ -84,6 +84,21 @@ async function signOut() {
 }
 
 // ============================================================
+// Role helpers
+// Hiërarchie: systeembeheerder > admin > reviewer > readonly
+// ============================================================
+const ROLE_LEVEL = { systeembeheerder: 4, admin: 3, reviewer: 2, readonly: 1 };
+
+function roleAtLeast(profile, minRole) {
+  return (ROLE_LEVEL[profile?.role] || 0) >= (ROLE_LEVEL[minRole] || 0);
+}
+
+function isSysteembeheerder(profile) { return profile?.role === 'systeembeheerder'; }
+function isAdmin(profile)            { return roleAtLeast(profile, 'admin'); }
+function isReviewer(profile)         { return roleAtLeast(profile, 'reviewer'); }
+function isReadonly(profile)         { return roleAtLeast(profile, 'readonly'); }
+
+// ============================================================
 // Shared UI helpers
 // ============================================================
 function showToast(message, type = 'success') {

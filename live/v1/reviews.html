@@ -177,6 +177,15 @@ let employees = [];
   document.getElementById('appLayout').style.display = 'flex';
   document.getElementById('sidebarContainer').innerHTML = renderNav('reviews');
 
+  // Readonly: verberg actieknoppen in modal
+  if (!isReviewer(profile)) {
+    ['modalFinalResponse','modalEmployee'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = true;
+    });
+    document.querySelectorAll('[onclick*="updateReviewStatus"], [onclick*="postReview"]').forEach(el => el.style.display = 'none');
+  }
+
   await Promise.all([loadEmployees(), fetchReviews()]);
   console.log('[lofly] reviews IIFE: klaar');
 })();
