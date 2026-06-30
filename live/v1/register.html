@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lofly — Account aanmaken</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="css/lofly.css">
+  <style>
+    .pw-rules { list-style:none; margin:6px 0 16px; padding:0; display:flex; flex-direction:column; gap:4px; }
+    .pw-rules li { font-size:12px; display:flex; align-items:center; gap:6px; color:#9ca3af; transition:color .15s; }
+    .pw-rules li.ok { color:#16a34a; }
+    .pw-rules li::before { content:''; display:inline-block; width:14px; height:14px; border-radius:50%; background:#e5e7eb; flex-shrink:0; transition:background .15s; }
+    .pw-rules li.ok::before { background:#16a34a; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 7l3 3 5-5' stroke='%23fff' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  </style>
+</head>
+<body>
+
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-mark"></div>
+      <span class="auth-logo-text">Lofly</span>
+    </div>
+
+    <h1 class="auth-title">Account aanmaken</h1>
+    <p class="auth-sub">Kies een wachtwoord voor je account</p>
+
+    <div class="auth-error" id="authError"></div>
+    <div class="auth-success" id="authSuccess" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 16px;font-size:13.5px;color:#166534;margin-bottom:16px;"></div>
+
+    <form id="registerForm">
+      <div class="form-group">
+        <label class="form-label" for="password">Wachtwoord</label>
+        <input class="form-control" type="password" id="password" placeholder="Minimaal 8 tekens" required autofocus>
+        <ul class="pw-rules" id="pwRules">
+          <li id="rule-length">Minimaal 8 tekens</li>
+          <li id="rule-upper">Minimaal 1 hoofdletter</li>
+          <li id="rule-special">Minimaal 1 speciaal teken (!@#$%^&amp;*)</li>
+        </ul>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="passwordConfirm">Wachtwoord bevestigen</label>
+        <input class="form-control" type="password" id="passwordConfirm" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="auth-submit" id="submitBtn">
+        Account aanmaken
+      </button>
+    </form>
+
+    <p style="text-align:center; margin-top:16px; font-size:13px; color:#6b7280;">
+      Al een account? <a href="/" style="color:#F97316;">Inloggen</a>
+    </p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script>
+const params = new URLSearchParams(window.location.search);
+const invitedEmail = params.get('email') ? decodeURIComponent(params.get('email')) : null;
+const invitedName  = params.get('name')  ? decodeURIComponent(params.get('name'))  : null;
+
+if (!invitedEmail) window.location.href = '/';
+
+(async () => {
+  const user = await getCurrentUser();
+  if (user) window.location.href = '/reviews';
+})();
+
+const passwordEl = document.getElementById('password');
+
+function checkRules(pw) {
+  return {
+    length:  pw.length >= 8,
+    upper:   /[A-Z]/.test(pw),
+    special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pw),
+  };
+}
+
+passwordEl.addEventListener('input', () => {
+  const r = checkRules(passwordEl.value);
+  document.getElementById('rule-length').classList.toggle('ok', r.length);
+  document.getElementById('rule-upper').classList.toggle('ok', r.upper);
+  document.getElementById('rule-special').classList.toggle('ok', r.special);
+});
+
+const form = document.getElementById('registerForm');
+const errorEl = document.getElementById('authError');
+const successEl = document.getElementById('authSuccess');
+const submitBtn = document.getElementById('submitBtn');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  errorEl.style.display = 'none';
+  successEl.style.display = 'none';
+
+  const password = passwordEl.value;
+  const passwordConfirm = document.getElementById('passwordConfirm').value;
+
+  const r = checkRules(password);
+  if (!r.length || !r.upper || !r.special) {
+    errorEl.textContent = 'Je wachtwoord voldoet niet aan de eisen.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  if (password !== passwordConfirm) {
+    errorEl.textContent = 'Wachtwoorden komen niet overeen.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Bezig...';
+
+  // Server-side check: bestaat er een openstaande uitnodiging voor dit e-mailadres?
+  const { data: valid, error: checkError } = await getSupabase()
+    .rpc('check_invitation', { p_email: invitedEmail });
+
+  if (checkError || !valid) {
+    errorEl.textContent = 'Geen geldige uitnodiging gevonden voor dit e-mailadres.';
+    errorEl.style.display = 'block';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Account aanmaken';
+    return;
+  }
+
+  const { error } = await getSupabase().auth.signUp({
+    email: invitedEmail,
+    password,
+    options: { data: { full_name: invitedName || invitedEmail } }
+  });
+
+  if (error) {
+    errorEl.textContent = error.message;
+    errorEl.style.display = 'block';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Account aanmaken';
+    return;
+  }
+
+  // Account aangemaakt — doorsturen naar loginpagina
+  window.location.href = '/?registered=1';
+});
+</script>
+</body>
+</html>

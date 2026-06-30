@@ -19,6 +19,9 @@
     <h1 class="auth-title">Welkom terug</h1>
     <p class="auth-sub">Log in op je account</p>
 
+    <div id="authSuccess" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 16px;font-size:13.5px;color:#166534;margin-bottom:16px;">
+      ✓ Account aangemaakt! Log hieronder in om te beginnen.
+    </div>
     <div class="auth-error" id="authError"></div>
 
     <form id="loginForm">
@@ -45,9 +48,12 @@
 <script src="js/config.js"></script>
 <script>
 (async () => {
-  // If already logged in, redirect to reviews
   const user = await getCurrentUser();
   if (user) window.location.href = '/reviews';
+
+  if (new URLSearchParams(window.location.search).get('registered') === '1') {
+    document.getElementById('authSuccess').style.display = 'block';
+  }
 })();
 
 const form = document.getElementById('loginForm');
