@@ -308,6 +308,31 @@ function renderStarsChart() {
   });
 }
 
+function getQrUrl() {
+  if (!emp) return null;
+  return `https://loflyapp.com/redirect.html?qr=${emp.qr_code_id}`;
+}
+
+function downloadQR() {
+  const canvas = document.querySelector('#qrCanvas canvas');
+  if (!canvas) { showToast('QR nog niet geladen', 'error'); return; }
+  const link = document.createElement('a');
+  link.download = `QR-${emp.name.replace(/\s+/g,'-')}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+async function copyQRUrl() {
+  const url = getQrUrl();
+  if (!url) return;
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('QR URL gekopieerd!');
+  } catch {
+    showToast('Kopiëren mislukt', 'error');
+  }
+}
+
 function renderReviewsTable() {
   const tbody = document.getElementById('reviewsBody');
   if (!empReviews.length) {
