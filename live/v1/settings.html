@@ -107,6 +107,10 @@
       <div class="card" style="max-width:500px">
         <div class="card-header"><span class="card-title">Nieuwe gebruiker uitnodigen</span></div>
         <div class="form-group">
+          <label class="form-label">Naam</label>
+          <input class="form-control" id="inviteName" type="text" placeholder="Nynke Vos">
+        </div>
+        <div class="form-group">
           <label class="form-label">E-mailadres</label>
           <input class="form-control" id="inviteEmail" type="email" placeholder="collega@bedrijf.nl">
         </div>
@@ -240,7 +244,7 @@ async function saveOrgUpdate(updates) {
 async function loadUsers() {
   const { data } = await getSupabase()
     .from('profiles')
-    .select('id, full_name, role')
+    .select('id, full_name, email, role')
     .order('full_name');
 
   const tbody = document.getElementById('usersBody');
@@ -251,8 +255,13 @@ async function loadUsers() {
 
   tbody.innerHTML = data.map(u => `
     <tr>
-      <td class="font-semibold">${escHtml(u.full_name || 'Onbekend')}</td>
-      <td style="color:#6b7280">—</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="name-text-${u.id}" class="font-semibold">${escHtml(u.full_name || 'Onbekend')}</span>
+          <button class="btn btn-secondary btn-sm" onclick="editName('${u.id}', '${escHtml(u.full_name || '')}')" style="padding:2px 8px;font-size:11px">✏</button>
+        </div>
+      </td>
+      <td style="color:#6b7280">${escHtml(u.email || '—')}</td>
       <td>
         <select class="form-control" style="width:140px" onchange="updateRole('${u.id}', this.value)" ${u.id === profile.id ? 'disabled' : ''}>
           <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
@@ -265,6 +274,15 @@ async function loadUsers() {
       </td>
     </tr>
   `).join('');
+}
+
+async function editName(userId, currentName) {
+  const newName = prompt('Naam wijzigen:', currentName);
+  if (newName === null || newName.trim() === '') return;
+  const { error } = await getSupabase().from('profiles').update({ full_name: newName.trim() }).eq('id', userId);
+  if (error) { showToast('Fout: ' + error.message, 'error'); return; }
+  showToast('Naam bijgewerkt');
+  loadUsers();
 }
 
 async function updateRole(userId, role) {
@@ -309,20 +327,23 @@ async function loadInvitations() {
 }
 
 async function sendInvite() {
+  const name = document.getElementById('inviteName').value.trim();
   const email = document.getElementById('inviteEmail').value.trim();
   const role = document.getElementById('inviteRole').value;
+  if (!name) { showToast('Voer een naam in', 'error'); return; }
   if (!email) { showToast('Voer een e-mailadres in', 'error'); return; }
 
   const { error } = await getSupabase()
     .from('invitations')
     .insert({
       organization_id: profile.organization_id,
-      email, role,
+      email, role, name,
       invited_by: profile.id
     });
 
   if (error) { showToast('Fout: ' + error.message, 'error'); return; }
-  showToast('Uitnodiging aangemaakt (deel de login link handmatig)');
+  showToast('Uitnodiging aangemaakt');
+  document.getElementById('inviteName').value = '';
   document.getElementById('inviteEmail').value = '';
   loadInvitations();
 }
