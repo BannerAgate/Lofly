@@ -47,7 +47,7 @@
 (async () => {
   // If already logged in, redirect to reviews
   const user = await getCurrentUser();
-  if (user) window.location.href = 'reviews.html';
+  if (user) window.location.href = '/reviews';
 })();
 
 const form = document.getElementById('loginForm');
@@ -70,7 +70,7 @@ form.addEventListener('submit', async (e) => {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Inloggen';
   } else {
-    window.location.href = '/reviews.html';
+    window.location.href = '/reviews';
   }
 });
 </script>

@@ -157,7 +157,7 @@ let employees = [];
 // Init
 // ============================================================
 (async () => {
-  const user = await requireAuth('index.html');
+  const user = await requireAuth('/');
   if (!user) return;
 
   profile = await getCurrentProfile();

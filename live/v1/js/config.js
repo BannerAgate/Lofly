@@ -23,12 +23,30 @@ function getSupabase() {
 // Auth helpers
 // ============================================================
 async function getCurrentUser() {
-  // First try session (local, fast)
-  const { data: { session } } = await getSupabase().auth.getSession();
-  if (session?.user) return session.user;
-  // Fallback to server verification
-  const { data: { user } } = await getSupabase().auth.getUser();
-  return user;
+  return new Promise((resolve) => {
+    let resolved = false;
+    const done = (user) => {
+      if (!resolved) {
+        resolved = true;
+        try { subscription?.unsubscribe(); } catch (_) {}
+        resolve(user ?? null);
+      }
+    };
+
+    // onAuthStateChange fires with INITIAL_SESSION after client reads localStorage.
+    // This is the authoritative signal that Supabase is ready.
+    const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_event, session) => {
+      done(session?.user ?? null);
+    });
+
+    // Fast path: if client already initialized, getSession() resolves immediately.
+    getSupabase().auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) done(session.user);
+    });
+
+    // Safety net: 5 seconds max wait
+    setTimeout(() => done(null), 5000);
+  });
 }
 
 async function getCurrentProfile() {
@@ -57,7 +75,7 @@ async function getCurrentProfile() {
   return { ...profile, organizations: org || null };
 }
 
-async function requireAuth(redirectTo = '/index.html') {
+async function requireAuth(redirectTo = '/') {
   const user = await getCurrentUser();
   if (!user) {
     window.location.href = redirectTo;
@@ -68,7 +86,7 @@ async function requireAuth(redirectTo = '/index.html') {
 
 async function signOut() {
   await getSupabase().auth.signOut();
-  window.location.href = '/index.html';
+  window.location.href = '/';
 }
 
 // ============================================================
@@ -143,9 +161,9 @@ function getStatusBadge(status) {
 // ============================================================
 function renderNav(activePage) {
   const pages = [
-    { id: 'reviews', label: 'Reviews', icon: '⭐', href: 'reviews.html' },
-    { id: 'dashboard', label: 'Dashboard', icon: '📊', href: 'dashboard.html' },
-    { id: 'employees', label: 'Medewerkers', icon: '👤', href: 'employees.html' },
+    { id: 'reviews', label: 'Reviews', icon: '⭐', href: '/reviews' },
+    { id: 'dashboard', label: 'Dashboard', icon: '📊', href: '/dashboard' },
+    { id: 'employees', label: 'Medewerkers', icon: '👤', href: '/employees' },
   ];
 
   const navItems = pages.map(p => `
@@ -163,7 +181,7 @@ function renderNav(activePage) {
       </div>
       <div class="nav-items">${navItems}</div>
       <div class="nav-bottom">
-        <a href="settings.html" class="nav-item ${activePage === 'settings' ? 'active' : ''}">
+        <a href="/settings" class="nav-item ${activePage === 'settings' ? 'active' : ''}">
           <span class="nav-icon">⚙️</span>
           <span class="nav-label">Instellingen</span>
         </a>
