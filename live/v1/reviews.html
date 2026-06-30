@@ -386,7 +386,7 @@ async function postReview() {
   const employeeId = document.getElementById('modalEmployee').value || null;
   document.getElementById('postBtnText').textContent = 'Bezig...';
 
-  // Sla definitieve reactie op in Supabase (Edge Function leest deze op)
+  // Sla definitieve reactie op in Supabase
   await getSupabase()
     .from('reviews')
     .update({ final_response: finalResponse, employee_id: employeeId, status: 'approved', updated_at: new Date().toISOString() })
@@ -396,4 +396,46 @@ async function postReview() {
     if (r.source === 'klantenvertellen') {
       // Edge Function haalt final_response zelf op — geen Make.com template escaping
       const { data: { session } } = await getSupabase().auth.getSession();
-      const res = 
+      const res = await fetch(EDGE_FN_POST_KV, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ review_id: currentReviewId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+    } else if (r.source === 'google') {
+      // Make.com webhook plaatst reactie op Google en markeert als posted
+      const res = await fetch(MAKE_WEBHOOK_GOOGLE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          review_id: currentReviewId,
+          external_id: r.external_id,
+          response_text: finalResponse,
+          source: r.source,
+        }),
+      });
+      if (!res.ok) throw new Error(`Webhook fout: ${res.status}`);
+    } else {
+      throw new Error('Onbekende bron: ' + r.source);
+    }
+
+    showToast('Reactie geplaatst!', 'success');
+    document.getElementById('postBtnText').textContent = 'Herplaatsen';
+    closeModal();
+    setTimeout(fetchReviews, 1500);
+  } catch (err) {
+    console.error('postReview fout:', err);
+    showToast('Fout bij plaatsen: ' + err.message, 'error');
+    document.getElementById('postBtnText').textContent = 'Plaatsen';
+  }
+}
+</script>
+</body>
+</html>

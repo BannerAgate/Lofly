@@ -403,7 +403,8 @@ async function postReview() {
         throw new Error(err.error || `HTTP ${res.status}`);
       }
     } else if (r.source === 'google') {
-      await fetch(MAKE_WEBHOOK_GOOGLE, {
+      // Make.com webhook plaatst reactie op Google en markeert als posted
+      const res = await fetch(MAKE_WEBHOOK_GOOGLE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -413,24 +414,15 @@ async function postReview() {
           source: r.source,
         }),
       });
+      if (!res.ok) throw new Error(`Webhook fout: ${res.status}`);
     } else {
       throw new Error('Onbekende bron: ' + r.source);
     }
 
-    // Voeg toe aan response_library voor toekomstige AI-suggesties
-    await getSupabase().from('response_library').insert({
-      organization_id: profile.organization_id,
-      review_id: r.id,
-      response_type: 'manual',
-      response_text: finalResponse,
-      star_rating: r.star_rating,
-      source: r.source,
-    });
-
-    showToast('Reactie geplaatst door Lofly');
+    showToast('Reactie geplaatst!', 'success');
     document.getElementById('postBtnText').textContent = 'Herplaatsen';
     closeModal();
-    fetchReviews();
+    setTimeout(fetchReviews, 1500);
   } catch (err) {
     console.error('postReview fout:', err);
     showToast('Fout bij plaatsen: ' + err.message, 'error');
