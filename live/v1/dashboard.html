@@ -314,4 +314,25 @@ function renderStarsChart(reviews) {
 function renderEmployeeTable(employees, reviews, scans) {
   const tbody = document.getElementById('employeeBody');
   if (!employees.length) {
-    t
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:24px;color:#9ca3af;text-align:center">Geen medewerkers gevonden</td></tr>';
+    return;
+  }
+  tbody.innerHTML = employees.map(emp => {
+    const empScans   = scans.filter(s => s.employee_id === emp.id);
+    const empClicks  = empScans.filter(s => s.button_clicked);
+    const empReviews = reviews.filter(r => r.employee_id === emp.id);
+    const avg = empReviews.length
+      ? (empReviews.reduce((a, r) => a + r.star_rating, 0) / empReviews.length).toFixed(1)
+      : '—';
+    return `<tr>
+      <td>${escHtml(emp.name)}</td>
+      <td>${empScans.length}</td>
+      <td>${empClicks.length}</td>
+      <td>${empReviews.length}</td>
+      <td>${avg}</td>
+    </tr>`;
+  }).join('');
+}
+</script>
+</body>
+</html>
