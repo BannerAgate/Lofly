@@ -291,4 +291,37 @@ function renderStarsChart() {
   new Chart(document.getElementById('chartStars').getContext('2d'), {
     type: 'bar',
     data: {
-      labels: ['1★','2★','3★','4★','5
+      labels: ['1★','2★','3★','4★','5★'],
+      datasets: [{
+        label: 'Reviews',
+        data: counts,
+        backgroundColor: ['#fee2e2','#fecaca','#fde68a','#bbf7d0','#6ee7b7'],
+        borderWidth: 0,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+}
+
+function renderReviewsTable() {
+  const tbody = document.getElementById('reviewsBody');
+  if (!empReviews.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:24px;color:#9ca3af;text-align:center">Geen gekoppelde reviews</td></tr>';
+    return;
+  }
+  tbody.innerHTML = empReviews.map(r => `<tr>
+    <td>${formatDate(r.review_date)}</td>
+    <td>${escHtml(r.reviewer_name || '—')}</td>
+    <td>${getSourceBadge(r.source)}</td>
+    <td>${renderStars(r.star_rating)}</td>
+    <td>${getStatusBadge(r.status)}</td>
+  </tr>`).join('');
+}
+</script>
+</body>
+</html>
