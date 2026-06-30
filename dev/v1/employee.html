@@ -286,9 +286,67 @@ function renderScansChart() {
   });
 }
 
+function getQrUrl() {
+  if (!emp) return null;
+  return `https://loflyapp.com/redirect.html?qr=${emp.qr_code_id}`;
+}
+
+function downloadQR() {
+  const canvas = document.querySelector('#qrCanvas canvas');
+  if (!canvas) { showToast('QR nog niet geladen', 'error'); return; }
+  const link = document.createElement('a');
+  link.download = `QR-${emp.name.replace(/\s+/g,'-')}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+async function copyQRUrl() {
+  const url = getQrUrl();
+  if (!url) return;
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('QR URL gekopieerd!');
+  } catch {
+    showToast('Kopiëren mislukt', 'error');
+  }
+}
+
 function renderStarsChart() {
   const counts = [1,2,3,4,5].map(s => empReviews.filter(r => r.star_rating === s).length);
   new Chart(document.getElementById('chartStars').getContext('2d'), {
     type: 'bar',
     data: {
-      labels: ['1★','2★','3★','4★','5
+      labels: ['1★','2★','3★','4★','5★'],
+      datasets: [{
+        label: 'Reviews',
+        data: counts,
+        backgroundColor: ['#fee2e2','#fecaca','#fde68a','#bbf7d0','#6ee7b7'],
+        borderWidth: 0,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+}
+
+function renderReviewsTable() {
+  const tbody = document.getElementById('reviewsBody');
+  if (!empReviews.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:24px;color:#9ca3af;text-align:center">Geen gekoppelde reviews</td></tr>';
+    return;
+  }
+  tbody.innerHTML = empReviews.map(r => `<tr>
+    <td>${formatDate(r.review_date)}</td>
+    <td>${escHtml(r.reviewer_name || '—')}</td>
+    <td>${getSourceBadge(r.source)}</td>
+    <td>${renderStars(r.star_rating)}</td>
+    <td>${getStatusBadge(r.status)}</td>
+  </tr>`).join('');
+}
+</script>
+</body>
+</html>
