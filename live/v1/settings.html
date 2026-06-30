@@ -184,8 +184,6 @@ function populateFields() {
   document.getElementById('orgSlug').value = org.slug || '';
   document.getElementById('orgEmail').value = org.contact_email || '';
   document.getElementById('orgGoogleUrl').value = org.google_review_url || '';
-  document.getElementById('googleAccountId').value = org.google_account_id || '';
-  document.getElementById('googleLocationId').value = org.google_location_id || '';
   document.getElementById('kvLocationId').value = org.kv_location_id || '';
   document.getElementById('kvTenantId').value = org.kv_tenant_id || '';
   // Sensitive fields: only show placeholder if set
@@ -211,16 +209,6 @@ async function saveOrgSettings() {
     contact_email: document.getElementById('orgEmail').value.trim(),
     google_review_url: document.getElementById('orgGoogleUrl').value.trim(),
   };
-  await saveOrgUpdate(updates);
-}
-
-async function saveGoogleSettings() {
-  const updates = {
-    google_account_id: document.getElementById('googleAccountId').value.trim(),
-    google_location_id: document.getElementById('googleLocationId').value.trim(),
-  };
-  const token = document.getElementById('googleRefreshToken').value.trim();
-  if (token) updates.google_refresh_token = token;
   await saveOrgUpdate(updates);
 }
 
