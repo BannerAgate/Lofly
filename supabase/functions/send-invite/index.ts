@@ -107,11 +107,14 @@ Deno.serve(async (req: Request) => {
             <td style="padding:32px 32px 24px;">
               <p style="margin:0 0 16px;font-size:14px;color:#6b7280;">Hallo ${firstName},</p>
               <p style="margin:0 0 12px;font-size:16px;font-weight:700;color:#111827;line-height:1.4;letter-spacing:-0.2px;">
-                Je bent uitgenodigd voor <span style="color:#F97316;">${orgName}</span> op Lofly.
+                Je bent uitgenodigd voor Lofly door <span style="color:#F97316;">${orgName}</span>.
               </p>
               <p style="margin:0 0 28px;font-size:14px;color:#6b7280;line-height:1.65;">
-                ${inviterName} heeft je uitgenodigd als <strong style="color:#111827;font-weight:600;">${roleLabel}</strong>.
-                Klik op de knop hieronder om in te loggen en direct aan de slag te gaan.
+                ${orgName} heeft je uitgenodigd als <strong style="color:#111827;font-weight:600;">${roleLabel}</strong> voor Lofly.
+                Met Lofly heb je in één overzicht al jouw online reviews zichtbaar en helpt de Lofly-agent jou met jullie online reviewbeheer.
+              </p>
+              <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.65;">
+                Klik op de knop hieronder om in te loggen en direct aan de slag te gaan!
               </p>
 
               <!-- Knop -->
@@ -125,18 +128,8 @@ Deno.serve(async (req: Request) => {
                 </tr>
               </table>
 
-              <!-- Uitnodiger -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;margin:0 0 24px;">
-                <tr>
-                  <td style="padding:14px 16px;">
-                    <p style="margin:0 0 3px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;">Uitgenodigd door</p>
-                    <p style="margin:0;font-size:13px;color:#111827;font-weight:500;">${inviterName}${inviterEmail ? ` &mdash; <span style="color:#F97316;">${inviterEmail}</span>` : ''}</p>
-                  </td>
-                </tr>
-              </table>
-
               <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.65;">
-                Verwachtte je deze mail niet? Dan kun je hem gewoon negeren.
+                Verwachtte je deze mail niet? Dan kun je hem negeren.
               </p>
             </td>
           </tr>
