@@ -33,12 +33,13 @@ function getSupabase() {
 // Auth helpers
 // ============================================================
 async function getCurrentUser() {
-  // Ensure the client has finished reading from localStorage before we
-  // ask for the session. Without this await, getSession() can return null
-  // on page load even if a valid session exists in localStorage.
-  getSupabase(); // ensure _supabaseReady is set
+  console.log('[lofly] getCurrentUser: start');
+  getSupabase();
+  console.log('[lofly] getCurrentUser: wacht op initialize()...');
   await _supabaseReady;
-  const { data: { session } } = await getSupabase().auth.getSession();
+  console.log('[lofly] getCurrentUser: initialize() klaar');
+  const { data: { session }, error } = await getSupabase().auth.getSession();
+  console.log('[lofly] getCurrentUser: getSession resultaat =', session?.user?.email ?? 'null', error ? '| error: ' + error.message : '');
   return session?.user ?? null;
 }
 

@@ -157,21 +157,28 @@ let employees = [];
 // Init
 // ============================================================
 (async () => {
+  console.log('[lofly] reviews IIFE: start');
+
   const user = await requireAuth('/');
+  console.log('[lofly] reviews IIFE: user =', user?.email ?? 'null');
   if (!user) return;
 
+  console.log('[lofly] reviews IIFE: profiel ophalen...');
   profile = await getCurrentProfile();
+  console.log('[lofly] reviews IIFE: profiel =', profile?.organizations?.name ?? 'null');
   if (!profile) {
     console.error('Profile laden mislukt — sessie vernieuwen');
     document.body.innerHTML = '<div style="padding:40px;color:#fff;background:#1a2335;min-height:100vh;font-family:sans-serif"><h2>Sessie probleem</h2><p>Profiel kon niet worden geladen. <a href="index.html" style="color:#F97316">Opnieuw inloggen</a></p></div>';
     return;
   }
 
+  console.log('[lofly] reviews IIFE: layout tonen...');
   document.getElementById('orgName').textContent = profile.organizations?.name || '';
   document.getElementById('appLayout').style.display = 'flex';
   document.getElementById('sidebarContainer').innerHTML = renderNav('reviews');
 
   await Promise.all([loadEmployees(), fetchReviews()]);
+  console.log('[lofly] reviews IIFE: klaar');
 })();
 
 // ============================================================
