@@ -347,16 +347,35 @@ async function sendInvite() {
   if (!name) { showToast('Voer een naam in', 'error'); return; }
   if (!email) { showToast('Voer een e-mailadres in', 'error'); return; }
 
-  const { error } = await getSupabase()
+  const { data: inv, error } = await getSupabase()
     .from('invitations')
     .insert({
       organization_id: profile.organization_id,
       email, role, name,
       invited_by: profile.id
-    });
+    })
+    .select('id')
+    .single();
 
   if (error) { showToast('Fout: ' + error.message, 'error'); return; }
-  showToast('Uitnodiging aangemaakt');
+
+  // Stuur uitnodigingsmail via Edge Function
+  try {
+    const { data: { session } } = await getSupabase().auth.getSession();
+    await fetch(`${SUPABASE_URL}/functions/v1/send-invite`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ invitation_id: inv.id }),
+    });
+  } catch (e) {
+    console.warn('Mail versturen mislukt:', e);
+  }
+
+  showToast('Uitnodiging verstuurd');
   document.getElementById('inviteName').value = '';
   document.getElementById('inviteEmail').value = '';
   loadInvitations();
