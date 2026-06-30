@@ -11,10 +11,20 @@ const WORKERS_BASE_URL = 'https://lofly-workers.YOUR_ACCOUNT.workers.dev';
 const APP_VERSION = '1.0.0';
 
 // Initialize Supabase client (loaded from CDN in each HTML file)
+// We use skipAutoInitialize so we can explicitly await initialization before
+// calling getSession(). This prevents the race condition where getSession()
+// returns null because the client hasn't finished reading from localStorage yet.
 let _supabase = null;
+let _supabaseReady = null;
+
 function getSupabase() {
   if (!_supabase) {
-    _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { skipAutoInitialize: true }
+    });
+    // initialize() reads localStorage and sets up the internal session.
+    // Store the promise so getCurrentUser() can await it.
+    _supabaseReady = _supabase.auth.initialize();
   }
   return _supabase;
 }
@@ -23,30 +33,13 @@ function getSupabase() {
 // Auth helpers
 // ============================================================
 async function getCurrentUser() {
-  return new Promise((resolve) => {
-    let resolved = false;
-    const done = (user) => {
-      if (!resolved) {
-        resolved = true;
-        try { subscription?.unsubscribe(); } catch (_) {}
-        resolve(user ?? null);
-      }
-    };
-
-    // onAuthStateChange fires with INITIAL_SESSION after client reads localStorage.
-    // This is the authoritative signal that Supabase is ready.
-    const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_event, session) => {
-      done(session?.user ?? null);
-    });
-
-    // Fast path: if client already initialized, getSession() resolves immediately.
-    getSupabase().auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) done(session.user);
-    });
-
-    // Safety net: 5 seconds max wait
-    setTimeout(() => done(null), 5000);
-  });
+  // Ensure the client has finished reading from localStorage before we
+  // ask for the session. Without this await, getSession() can return null
+  // on page load even if a valid session exists in localStorage.
+  getSupabase(); // ensure _supabaseReady is set
+  await _supabaseReady;
+  const { data: { session } } = await getSupabase().auth.getSession();
+  return session?.user ?? null;
 }
 
 async function getCurrentProfile() {
