@@ -188,6 +188,8 @@ let org = null;
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
     const usersBtn = document.querySelector('[onclick*="tabUsers"]');
     if (usersBtn) { usersBtn.classList.add('active'); document.getElementById('tabUsers').classList.remove('hidden'); }
+    // Admin mag geen admin/systeembeheerder uitnodigen
+    document.querySelectorAll('#inviteRole option[value="admin"], #inviteRole option[value="systeembeheerder"]').forEach(o => o.remove());
   }
 
   populateFields();
@@ -254,6 +256,35 @@ async function saveOrgUpdate(updates) {
 // ============================================================
 // Users
 // ============================================================
+const ROLE_LABELS = { systeembeheerder: 'Systeembeheerder', admin: 'Admin', reviewer: 'Reviewer', readonly: 'Readonly' };
+
+function renderRoleCell(u) {
+  // Eigen profiel: altijd disabled
+  if (u.id === profile.id) {
+    return `<select class="form-control" style="width:140px" disabled>
+      <option value="${u.role}" selected>${ROLE_LABELS[u.role] || u.role}</option>
+    </select>`;
+  }
+  // Systeembeheerder: volledige dropdown
+  if (isSysteembeheerder(profile)) {
+    return `<select class="form-control" style="width:140px" onchange="updateRole('${u.id}', this.value)">
+      <option value="systeembeheerder" ${u.role==='systeembeheerder'?'selected':''}>Systeembeheerder</option>
+      <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+      <option value="reviewer" ${u.role==='reviewer'?'selected':''}>Reviewer</option>
+      <option value="readonly" ${u.role==='readonly'?'selected':''}>Readonly</option>
+    </select>`;
+  }
+  // Admin: admin/systeembeheerder collega's zijn niet aanpasbaar
+  if (u.role === 'admin' || u.role === 'systeembeheerder') {
+    return `<span style="color:#6b7280;font-size:13px">${ROLE_LABELS[u.role]}</span>`;
+  }
+  // Admin: reviewer/readonly collega's → beperkte dropdown
+  return `<select class="form-control" style="width:140px" onchange="updateRole('${u.id}', this.value)">
+    <option value="reviewer" ${u.role==='reviewer'?'selected':''}>Reviewer</option>
+    <option value="readonly" ${u.role==='readonly'?'selected':''}>Readonly</option>
+  </select>`;
+}
+
 async function loadUsers() {
   const { data } = await getSupabase()
     .from('profiles')
@@ -275,14 +306,7 @@ async function loadUsers() {
         </div>
       </td>
       <td style="color:#6b7280">${escHtml(u.email || '—')}</td>
-      <td>
-        <select class="form-control" style="width:140px" onchange="updateRole('${u.id}', this.value)" ${u.id === profile.id ? 'disabled' : ''}>
-          <option value="systeembeheerder" ${u.role==='systeembeheerder'?'selected':''}>Systeembeheerder</option>
-          <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
-          <option value="reviewer" ${u.role==='reviewer'?'selected':''}>Reviewer</option>
-          <option value="readonly" ${u.role==='readonly'?'selected':''}>Readonly</option>
-        </select>
-      </td>
+      <td>${renderRoleCell(u)}</td>
       <td>
         ${u.id !== profile.id ? `<button class="btn btn-danger btn-sm" onclick="removeUser('${u.id}')">Verwijderen</button>` : '<span style="color:#9ca3af;font-size:12px">Jij</span>'}
       </td>
