@@ -126,7 +126,7 @@ form.addEventListener('submit', async (e) => {
     return;
   }
 
-  const { error } = await getSupabase().auth.signUp({
+  const { data: signUpData, error } = await getSupabase().auth.signUp({
     email: invitedEmail,
     password,
     options: { data: { full_name: invitedName || invitedEmail } }
@@ -140,7 +140,21 @@ form.addEventListener('submit', async (e) => {
     return;
   }
 
-  // Account aangemaakt — doorsturen naar loginpagina
+  // Koppel de uitnodiging aan het profiel (org + rol) via de server
+  if (signUpData?.session) {
+    await fetch(`${SUPABASE_URL}/functions/v1/complete-signup`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${signUpData.session.access_token}`,
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+      },
+    });
+    // Uitloggen zodat de gebruiker zelf inlogt op de loginpagina
+    await getSupabase().auth.signOut();
+  }
+
+  // Doorsturen naar loginpagina
   window.location.href = '/?registered=1';
 });
 </script>
