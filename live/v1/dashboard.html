@@ -192,7 +192,7 @@ async function loadDashboard() {
   // Load reviews
   let query = getSupabase().from('reviews').select('*');
   if (dateFrom) query = query.gte('review_date', dateFrom);
-  if (dateTo)   query = query.lte('review_date', dateTo);
+  if (dateTo)   query = query.lte('review_date', dateTo + 'T23:59:59');
   const { data: reviews } = await query;
 
   // Load QR scans
