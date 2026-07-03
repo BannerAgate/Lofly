@@ -101,7 +101,7 @@
 
 <!-- Review Edit Modal -->
 <div class="modal-backdrop hidden" id="reviewModal">
-  <div class="modal" style="max-width:700px">
+  <div class="modal" style="max-width:900px">
     <div class="modal-header">
       <div>
         <h2 class="modal-title" id="modalReviewerName">Review</h2>
@@ -123,7 +123,7 @@
 
     <div class="form-group">
       <label class="form-label">Definitieve reactie</label>
-      <textarea class="form-control" id="modalFinalResponse" rows="4" placeholder="Bewerk de AI-suggestie of schrijf een eigen reactie..."></textarea>
+      <textarea class="form-control" id="modalFinalResponse" rows="7" placeholder="Bewerk de AI-suggestie of schrijf een eigen reactie..."></textarea>
     </div>
 
     <div class="form-group">
@@ -151,6 +151,7 @@ let profile = null;
 let allReviews = [];
 let currentStatus = 'pending';
 let currentReviewId = null;
+let currentEmployeeId = null;
 let employees = [];
 
 // ============================================================
@@ -340,15 +341,27 @@ function openModal(reviewId) {
   document.getElementById('modalReviewText').textContent = r.review_text || '(Geen tekst)';
   document.getElementById('modalAIResponse').textContent = r.ai_response || '(Nog geen AI-suggestie gegenereerd)';
   document.getElementById('modalFinalResponse').value = r.final_response || r.ai_response || '';
+  currentEmployeeId = r.employee_id || null;
   document.getElementById('modalEmployee').value = r.employee_id || '';
   document.getElementById('postBtnText').textContent = r.status === 'posted' ? 'Herplaatsen' : 'Plaatsen';
 
   document.getElementById('reviewModal').classList.remove('hidden');
 }
 
-function closeModal() {
+async function closeModal() {
+  const selectedEmployee = document.getElementById('modalEmployee').value || null;
+  if (currentReviewId && selectedEmployee !== currentEmployeeId) {
+    await getSupabase()
+      .from('reviews')
+      .update({ employee_id: selectedEmployee, updated_at: new Date().toISOString() })
+      .eq('id', currentReviewId);
+    // Update local cache
+    const r = allReviews.find(x => x.id === currentReviewId);
+    if (r) r.employee_id = selectedEmployee;
+  }
   document.getElementById('reviewModal').classList.add('hidden');
   currentReviewId = null;
+  currentEmployeeId = null;
 }
 
 // Close modal on backdrop click
