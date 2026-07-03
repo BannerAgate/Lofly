@@ -272,7 +272,7 @@ function applyFilters() {
   // Base set: all non-status filters applied (used for tab counts)
   const base = allReviews.filter(r => {
     if (source && r.source !== source) return false;
-    if (rating && String(r.star_rating) !== rating) return false;
+    if (rating && Math.round(parseFloat(r.star_rating)) !== parseInt(rating)) return false;
     if (employeeId && r.employee_id !== employeeId) return false;
     if (dateFrom && r.review_date && r.review_date.slice(0,10) < dateFrom) return false;
     if (dateTo && r.review_date && r.review_date.slice(0,10) > dateTo) return false;
@@ -395,13 +395,13 @@ async function postReview() {
   const employeeId = document.getElementById('modalEmployee').value || null;
   document.getElementById('postBtnText').textContent = 'Bezig...';
 
-  // Sla definitieve reactie op in Supabase
-  await getSupabase()
-    .from('reviews')
-    .update({ final_response: finalResponse, employee_id: employeeId, status: 'approved', updated_at: new Date().toISOString() })
-    .eq('id', currentReviewId);
-
   try {
+    // Sla definitieve reactie op in Supabase
+    await getSupabase()
+      .from('reviews')
+      .update({ final_response: finalResponse, employee_id: employeeId, status: 'approved', updated_at: new Date().toISOString() })
+      .eq('id', currentReviewId);
+
     if (r.source === 'klantenvertellen') {
       // Edge Function haalt final_response zelf op — geen Make.com template escaping
       const { data: { session } } = await getSupabase().auth.getSession();
@@ -431,6 +431,11 @@ async function postReview() {
         }),
       });
       if (!res.ok) throw new Error(`Webhook fout: ${res.status}`);
+      // Google reactie geplaatst → markeer als posted in Supabase
+      await getSupabase()
+        .from('reviews')
+        .update({ status: 'posted', posted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', currentReviewId);
     } else {
       throw new Error('Onbekende bron: ' + r.source);
     }

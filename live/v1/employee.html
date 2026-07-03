@@ -287,7 +287,7 @@ function renderScansChart() {
 }
 
 function renderStarsChart() {
-  const counts = [1,2,3,4,5].map(s => empReviews.filter(r => r.star_rating === s).length);
+  const counts = [1,2,3,4,5].map(s => empReviews.filter(r => Math.round(parseFloat(r.star_rating)) === s).length);
   new Chart(document.getElementById('chartStars').getContext('2d'), {
     type: 'bar',
     data: {

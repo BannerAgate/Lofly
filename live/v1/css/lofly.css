@@ -473,6 +473,9 @@ textarea.form-control { resize: vertical; min-height: 100px; }
 .star { font-size: 16px; }
 .star-filled { color: #f59e0b; }
 .star-empty { color: var(--gray-300); }
+.star-half { position: relative; display: inline-block; font-size: 16px; }
+.star-half-bg { color: var(--gray-300); }
+.star-half-fg { position: absolute; left: 0; top: 0; width: 50%; overflow: hidden; color: #f59e0b; }
 
 .star-lg { font-size: 22px; }
 

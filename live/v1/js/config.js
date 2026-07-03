@@ -142,10 +142,14 @@ function formatDateTime(dateStr) {
 }
 
 function renderStars(rating) {
-  const n = parseInt(rating) || 0;
-  return Array.from({ length: 5 }, (_, i) =>
-    `<span class="star ${i < n ? 'star-filled' : 'star-empty'}">★</span>`
-  ).join('');
+  const n = parseFloat(rating) || 0;
+  return Array.from({ length: 5 }, (_, i) => {
+    if (i < Math.floor(n)) return `<span class="star star-filled">★</span>`;
+    if (i === Math.floor(n) && n % 1 >= 0.5) {
+      return `<span class="star star-half"><span class="star-half-bg">★</span><span class="star-half-fg">★</span></span>`;
+    }
+    return `<span class="star star-empty">★</span>`;
+  }).join('');
 }
 
 function getSourceBadge(source) {
