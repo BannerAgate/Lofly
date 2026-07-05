@@ -406,6 +406,7 @@ async function postReview() {
 
   const finalResponse = document.getElementById('modalFinalResponse').value.trim();
   if (!finalResponse) { showToast('Voer eerst een reactie in', 'error'); return; }
+  if (r.source === 'google' && !r.external_id) { showToast('Review heeft geen extern ID — kan niet worden geplaatst', 'error'); return; }
 
   const employeeId = document.getElementById('modalEmployee').value || null;
   document.getElementById('postBtnText').textContent = 'Bezig...';
