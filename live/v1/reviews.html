@@ -104,7 +104,10 @@
   <div class="modal" style="max-width:900px">
     <div class="modal-header">
       <div>
-        <h2 class="modal-title" id="modalReviewerName">Review</h2>
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+          <h2 class="modal-title" id="modalReviewerName">Review</h2>
+          <span id="modalReviewerEmail" style="font-size:13px;color:#c4c9d4;font-weight:400"></span>
+        </div>
         <div id="modalMeta" style="font-size:12px;color:#6b7280;margin-top:3px"></div>
       </div>
       <button class="modal-close" onclick="closeModal()">✕</button>
@@ -335,6 +338,7 @@ function openModal(reviewId) {
   currentReviewId = reviewId;
 
   document.getElementById('modalReviewerName').textContent = r.reviewer_name || 'Anonieme reviewer';
+  document.getElementById('modalReviewerEmail').textContent = r.reviewer_email || '';
   document.getElementById('modalMeta').innerHTML =
     `${getSourceBadge(r.source)} ${renderStars(r.star_rating)} <span style="margin-left:8px">${formatDate(r.review_date)}</span>`;
   document.getElementById('modalReviewText').textContent = r.review_text || '(Geen tekst)';
