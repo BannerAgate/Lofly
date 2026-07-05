@@ -111,7 +111,10 @@
     </div>
 
     <div style="margin-bottom:16px">
-      <div class="review-section-label">Review tekst</div>
+      <div class="review-section-label" style="display:flex;justify-content:space-between;align-items:center">
+        Review tekst
+        <button onclick="openOorkonde()" style="font-size:11px;font-weight:500;color:#F97316;background:#fff3e8;border:0.5px solid #F97316;border-radius:4px;padding:2px 8px;cursor:pointer;display:flex;align-items:center;gap:4px">&#9733; Uitvouwen</button>
+      </div>
       <div class="review-text-box" id="modalReviewText">—</div>
     </div>
 
@@ -441,4 +444,138 @@ async function postReview() {
           response_text: finalResponse,
           source: r.source,
         }),
-  
+      });
+      if (!res.ok) throw new Error(`Webhook fout: ${res.status}`);
+      // Google reactie geplaatst → markeer als posted in Supabase
+      await getSupabase()
+        .from('reviews')
+        .update({ status: 'posted', posted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', currentReviewId);
+    } else {
+      throw new Error('Onbekende bron: ' + r.source);
+    }
+
+    showToast('Reactie geplaatst!', 'success');
+    document.getElementById('postBtnText').textContent = 'Herplaatsen';
+    closeModal();
+    setTimeout(fetchReviews, 1500);
+  } catch (err) {
+    console.error('postReview fout:', err);
+    showToast('Fout bij plaatsen: ' + err.message, 'error');
+    document.getElementById('postBtnText').textContent = 'Plaatsen';
+  }
+}
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<!-- Oorkonde Modal -->
+<div class="modal-backdrop hidden" id="oorkondeModal" style="z-index:1010">
+  <div style="background:#fff;border-radius:16px;overflow:hidden;max-width:480px;width:calc(100% - 40px);margin:20px">
+    <div id="oCard" style="background:#fffdf8">
+      <div style="height:5px;background:#F97316"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 28px 0">
+        <span id="oCompanyName" style="font-size:13px;font-weight:500;color:#374151"></span>
+        <span style="font-size:11px;color:#b0a090;display:flex;align-items:center;gap:4px">
+          <span style="width:7px;height:7px;background:#F97316;border-radius:50%;display:inline-block"></span>
+          Lofly
+        </span>
+      </div>
+      <svg id="oStarSvg" viewBox="0 0 340 175" width="100%" style="display:block;padding-top:12px">
+        <text id="os0" x="36"  y="149" font-size="36" text-anchor="middle">★</text>
+        <text id="os1" x="96"  y="103" font-size="44" text-anchor="middle">★</text>
+        <text id="os2" x="170" y="85"  font-size="52" text-anchor="middle">★</text>
+        <text id="os3" x="244" y="103" font-size="44" text-anchor="middle">★</text>
+        <text id="os4" x="304" y="149" font-size="36" text-anchor="middle">★</text>
+      </svg>
+      <div id="oRatingLabel" style="text-align:center;font-size:12px;color:#b0a090;margin-top:4px;padding-bottom:12px"></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:0 28px;margin-bottom:6px">
+        <div style="flex:1;height:1px;background:#f0e8d8"></div>
+        <span id="oName" style="font-size:22px;font-weight:500;color:#1a1a1a;white-space:nowrap"></span>
+        <div style="flex:1;height:1px;background:#f0e8d8"></div>
+      </div>
+      <p id="oEmployeeRow" style="text-align:center;font-size:12px;color:#b0a090;margin:0 0 20px;display:none">
+        Geholpen door <span id="oEmployeeName" style="color:#F97316;font-weight:500"></span>
+      </p>
+      <div style="position:relative;padding:4px 36px 22px;text-align:center">
+        <span aria-hidden="true" style="position:absolute;top:-14px;left:22px;font-size:80px;line-height:1;color:#fce9d4;font-family:Georgia,serif">"</span>
+        <p id="oReviewText" style="font-size:14px;line-height:1.8;color:#5a5047;font-style:italic;position:relative;z-index:1;margin:0"></p>
+      </div>
+      <div style="background:#faf8f4;border-top:1px solid #f0e8d8;padding:10px 28px;display:flex;justify-content:space-between;align-items:center">
+        <span id="oDate" style="font-size:11px;color:#b0a090"></span>
+        <span id="oSourceBadge" style="background:#eff6ff;border:0.5px solid #bfdbfe;color:#1d4ed8;font-size:11px;padding:3px 10px;border-radius:12px"></span>
+      </div>
+    </div>
+    <div style="border-top:0.5px solid #e5e7eb;padding:12px 20px;display:flex;justify-content:flex-end;gap:8px;background:#f9fafb">
+      <button onclick="closeOorkonde()" style="background:none;border:0.5px solid #d1d5db;color:#6b7280;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer">Sluiten</button>
+      <button id="oDownloadBtn" onclick="downloadOorkonde()" style="background:#F97316;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:13px;font-weight:500;cursor:pointer">&#8595; Downloaden</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openOorkonde() {
+  const r = allReviews.find(x => x.id === currentReviewId);
+  if (!r) return;
+
+  document.getElementById('oCompanyName').textContent = profile?.organizations?.name || '';
+  document.getElementById('oName').textContent = r.reviewer_name || 'Anoniem';
+
+  const rating = Math.round(parseFloat(r.star_rating || 0));
+  for (let i = 0; i < 5; i++) {
+    document.getElementById('os' + i).setAttribute('fill', i < rating ? '#F97316' : '#e8ddd0');
+  }
+  const sr = parseFloat(r.star_rating || 0);
+  document.getElementById('oRatingLabel').textContent = (sr % 1 === 0 ? sr.toFixed(0) : sr.toFixed(1)) + ' van de 5 sterren';
+
+  const empId = document.getElementById('modalEmployee').value;
+  const emp = employees.find(e => e.id === empId);
+  const empRow = document.getElementById('oEmployeeRow');
+  if (emp) {
+    document.getElementById('oEmployeeName').textContent = emp.name;
+    empRow.style.display = 'block';
+  } else {
+    empRow.style.display = 'none';
+  }
+
+  document.getElementById('oReviewText').textContent = r.review_text || '';
+  const srcMap = { klantenvertellen: 'Klantenvertellen', google: 'Google' };
+  document.getElementById('oSourceBadge').textContent = srcMap[r.source] || r.source;
+  document.getElementById('oDate').textContent = formatDate(r.review_date);
+
+  document.getElementById('oorkondeModal').classList.remove('hidden');
+}
+
+function closeOorkonde() {
+  document.getElementById('oorkondeModal').classList.add('hidden');
+}
+
+async function downloadOorkonde() {
+  const btn = document.getElementById('oDownloadBtn');
+  const orig = btn.textContent;
+  btn.textContent = 'Bezig…';
+  btn.disabled = true;
+  try {
+    const canvas = await html2canvas(document.getElementById('oCard'), {
+      scale: 2,
+      backgroundColor: '#fffdf8',
+      useCORS: true,
+      logging: false
+    });
+    const a = document.createElement('a');
+    a.download = 'review-oorkonde.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  } catch(e) {
+    console.error('Download fout:', e);
+  }
+  btn.textContent = orig;
+  btn.disabled = false;
+}
+
+document.getElementById('oorkondeModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeOorkonde();
+});
+</script>
+</body>
+</html>
