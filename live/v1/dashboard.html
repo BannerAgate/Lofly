@@ -7,6 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="css/lofly.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     .date-filter-label {
       font-size: 12px; font-weight: 600; color: #6b7280;
@@ -34,6 +35,9 @@
           <label class="date-filter-label" for="dateTo">Tot</label>
           <input type="date" class="form-control" id="dateTo" style="width:150px" onchange="loadDashboard()">
         </div>
+        <button onclick="openRapportage()" style="height:36px;padding:0 14px;background:#F97316;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap">
+          &#9660; Rapportage
+        </button>
       </div>
     </div>
 
@@ -149,12 +153,77 @@
   </main>
 </div>
 
+<!-- Rapportage modal -->
+<div class="modal-backdrop hidden" id="rapportageModal" style="z-index:1010;overflow-y:auto">
+  <div style="background:#fff;border-radius:16px;overflow:hidden;max-width:540px;width:calc(100% - 40px);margin:20px auto">
+
+    <!-- The card that gets captured as PNG -->
+    <div id="rapCard" style="background:#fffdf8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+
+      <!-- Orange top bar -->
+      <div style="height:5px;background:linear-gradient(90deg,#F97316,#fb923c)"></div>
+
+      <!-- Header -->
+      <div style="padding:22px 28px 14px;display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:#F97316;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px">Rapportage</div>
+          <div id="rapOrgName" style="font-size:19px;font-weight:700;color:#1a1a1a;line-height:1.2"></div>
+          <div id="rapDateRange" style="font-size:12px;color:#9ca3af;margin-top:3px"></div>
+        </div>
+        <span style="font-size:11px;color:#b0a090;display:flex;align-items:center;gap:5px;padding-top:3px">
+          <span style="width:7px;height:7px;background:#F97316;border-radius:50%;display:inline-block;flex-shrink:0"></span>
+          Lofly
+        </span>
+      </div>
+
+      <!-- KPI row -->
+      <div id="rapKpiRow" style="display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #f0e8d8;border-bottom:1px solid #f0e8d8;background:#faf8f4"></div>
+
+      <!-- Star distribution + portal split -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid #f0e8d8">
+        <div style="padding:18px 20px 18px 28px;border-right:1px solid #f0e8d8">
+          <div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:10px">Sterrenverdeling</div>
+          <div id="rapStarBars"></div>
+        </div>
+        <div style="padding:18px 28px 18px 20px">
+          <div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:10px">Per portaal</div>
+          <div id="rapPortals"></div>
+        </div>
+      </div>
+
+      <!-- Podium -->
+      <div style="padding:20px 28px 10px">
+        <div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:16px">Top medewerkers</div>
+        <div id="rapPodium" style="display:flex;align-items:flex-end;justify-content:center;gap:10px"></div>
+      </div>
+
+      <!-- Rest of employees -->
+      <div id="rapRestWrap" style="padding:0 28px 20px;display:none">
+        <div id="rapRestList" style="display:flex;flex-direction:column;gap:5px;margin-top:10px"></div>
+      </div>
+
+      <!-- Footer -->
+      <div style="background:#faf8f4;border-top:1px solid #f0e8d8;padding:9px 28px;display:flex;justify-content:space-between;align-items:center">
+        <span id="rapFooterDate" style="font-size:11px;color:#b0a090"></span>
+        <span style="font-size:11px;color:#b0a090">lofly.nl</span>
+      </div>
+    </div>
+
+    <!-- Action buttons (not part of download) -->
+    <div style="border-top:0.5px solid #e5e7eb;padding:12px 20px;display:flex;justify-content:flex-end;gap:8px;background:#f9fafb">
+      <button onclick="closeRapportage()" style="padding:7px 14px;background:#fff;border:1px solid #d1d5db;border-radius:6px;font-size:13px;cursor:pointer;color:#374151">Sluiten</button>
+      <button id="rapDownloadBtn" onclick="downloadRapportage()" style="padding:7px 16px;background:#F97316;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer">↓ Downloaden</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script>
 <script>
 let profile = null;
 let weeklyChart = null;
 let starsChart = null;
+let rapportageData = null;
 
 (async () => {
   try {
@@ -234,6 +303,9 @@ async function loadDashboard() {
   // Stars chart
   renderStarsChart(rv);
 
+  // Store for rapportage
+  rapportageData = { reviews: rv, scans: sc, employees: emps || [] };
+
   // Employee table
   renderEmployeeTable(emps || [], rv, sc);
 }
@@ -310,6 +382,169 @@ function renderStarsChart(reviews) {
     }
   });
 }
+
+// ── Rapportage ──────────────────────────────────────────────────────────────
+
+function fmtDateNl(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function openRapportage() {
+  if (!rapportageData) return;
+  const { reviews: rv, employees } = rapportageData;
+
+  const dateFrom = document.getElementById('dateFrom').value;
+  const dateTo   = document.getElementById('dateTo').value;
+
+  // Header
+  document.getElementById('rapOrgName').textContent   = profile?.organizations?.name || '';
+  document.getElementById('rapDateRange').textContent = fmtDateNl(dateFrom) + ' — ' + fmtDateNl(dateTo);
+  document.getElementById('rapFooterDate').textContent = 'Gegenereerd op ' + new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // KPIs
+  const total = rv.length;
+  const avg   = total ? (rv.reduce((a, r) => a + r.star_rating, 0) / total).toFixed(1) : '—';
+  const google = rv.filter(r => r.source === 'google');
+  const kv     = rv.filter(r => r.source === 'klantenvertellen');
+  document.getElementById('rapKpiRow').innerHTML = [
+    { label: 'Totaal reviews', val: total, sub: 'alle portals' },
+    { label: 'Gemiddeld', val: avg + ' ★', sub: 'uit 5' },
+    { label: 'Google', val: google.length, sub: google.length ? (google.reduce((a,r)=>a+r.star_rating,0)/google.length).toFixed(1)+' ★ gem.' : '—' },
+    { label: 'Klantenvertellen', val: kv.length, sub: kv.length ? (kv.reduce((a,r)=>a+r.star_rating,0)/kv.length).toFixed(1)+' ★ gem.' : '—' },
+  ].map((k, i) => `
+    <div style="padding:12px 14px;${i<3?'border-right:1px solid #f0e8d8':''}">
+      <div style="font-size:10px;color:#9ca3af;margin-bottom:3px">${k.label}</div>
+      <div style="font-size:20px;font-weight:700;color:#1a1a1a;line-height:1.1">${k.val}</div>
+      <div style="font-size:10px;color:#b0a090;margin-top:2px">${k.sub}</div>
+    </div>
+  `).join('');
+
+  // Star distribution
+  const starCounts = [5,4,3,2,1].map(s => ({ s, n: rv.filter(r => Math.round(parseFloat(r.star_rating)) === s).length }));
+  const maxCount = Math.max(...starCounts.map(x => x.n), 1);
+  const starColors = { 5:'#F97316', 4:'#fb923c', 3:'#fbbf24', 2:'#d1d5db', 1:'#e5e7eb' };
+  document.getElementById('rapStarBars').innerHTML = starCounts.map(({ s, n }) => `
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+      <span style="font-size:11px;color:#F97316;width:12px;text-align:right;flex-shrink:0">${s}</span>
+      <span style="font-size:10px;color:#F97316;flex-shrink:0">★</span>
+      <div style="flex:1;background:#f0e8d8;border-radius:3px;height:8px;overflow:hidden">
+        <div style="width:${Math.round(n/maxCount*100)}%;height:100%;background:${starColors[s]};border-radius:3px;transition:width .3s"></div>
+      </div>
+      <span style="font-size:11px;color:#374151;width:18px;text-align:right;flex-shrink:0">${n}</span>
+    </div>
+  `).join('');
+
+  // Portal split
+  const portals = [
+    { label: 'Google', color: '#4285F4', reviews: google },
+    { label: 'Klantenvertellen', color: '#F97316', reviews: kv },
+  ];
+  document.getElementById('rapPortals').innerHTML = portals.map(p => {
+    const cnt = p.reviews.length;
+    const pavg = cnt ? (p.reviews.reduce((a,r)=>a+r.star_rating,0)/cnt).toFixed(1) : null;
+    const pct  = total ? Math.round(cnt/total*100) : 0;
+    return `
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:12px;font-weight:500;color:#374151">${p.label}</span>
+          <span style="font-size:11px;color:#6b7280">${cnt} ${pavg ? '· '+pavg+' ★' : ''}</span>
+        </div>
+        <div style="background:#f0e8d8;border-radius:4px;height:9px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:${p.color};border-radius:4px"></div>
+        </div>
+        <div style="font-size:10px;color:#b0a090;margin-top:2px">${pct}% van totaal</div>
+      </div>
+    `;
+  }).join('');
+
+  // Podium — rank by avg score, then by count
+  const empStats = employees
+    .map(e => {
+      const linked = rv.filter(r => r.employee_id === e.id);
+      const empAvg = linked.length ? linked.reduce((a,r)=>a+r.star_rating,0)/linked.length : 0;
+      return { name: e.name, count: linked.length, avg: empAvg };
+    })
+    .filter(e => e.count > 0)
+    .sort((a,b) => b.avg - a.avg || b.count - a.count);
+
+  const top3 = empStats.slice(0, 3);
+  const rest = empStats.slice(3);
+
+  const podiumCfg = [
+    { rank: 2, height: 90,  color: '#9ca3af', bg: '#f3f4f6', crown: '🥈', idx: 1 },
+    { rank: 1, height: 120, color: '#F97316', bg: '#fff3e8', crown: '🥇', idx: 0 },
+    { rank: 3, height: 68,  color: '#d97706', bg: '#fef3c7', crown: '🥉', idx: 2 },
+  ];
+
+  document.getElementById('rapPodium').innerHTML = top3.length === 0
+    ? '<div style="color:#9ca3af;font-size:13px;text-align:center;padding:20px">Geen gekoppelde reviews in deze periode</div>'
+    : podiumCfg.map(cfg => {
+        const emp = top3[cfg.idx];
+        if (!emp) return '';
+        return `
+          <div style="display:flex;flex-direction:column;align-items:center;flex:1;max-width:140px">
+            <div style="font-size:10px;color:#6b7280;margin-bottom:4px">${emp.avg.toFixed(1)} ★</div>
+            <div style="font-size:11px;font-weight:600;color:#1a1a1a;text-align:center;margin-bottom:6px;line-height:1.2;max-width:110px">${escHtml(emp.name)}</div>
+            <div style="width:100%;height:${cfg.height}px;background:${cfg.bg};border:1.5px solid ${cfg.color}30;border-bottom:none;border-radius:8px 8px 0 0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px">
+              <span style="font-size:22px">${cfg.crown}</span>
+              <span style="font-size:11px;font-weight:700;color:${cfg.color}">#${cfg.rank}</span>
+              <span style="font-size:10px;color:#6b7280">${emp.count} review${emp.count !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+  // Rest list
+  const restWrap = document.getElementById('rapRestWrap');
+  const restList = document.getElementById('rapRestList');
+  if (rest.length > 0) {
+    restList.innerHTML = rest.map((e, i) => `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#faf8f4;border-radius:6px">
+        <span style="font-size:11px;color:#9ca3af;width:18px;text-align:center;flex-shrink:0">${i+4}</span>
+        <span style="font-size:12px;color:#374151;font-weight:500;flex:1">${escHtml(e.name)}</span>
+        <span style="font-size:11px;color:#6b7280">${e.count} review${e.count!==1?'s':''}</span>
+        <span style="font-size:11px;color:#F97316;font-weight:600;min-width:36px;text-align:right">${e.avg.toFixed(1)} ★</span>
+      </div>
+    `).join('');
+    restWrap.style.display = 'block';
+  } else {
+    restWrap.style.display = 'none';
+  }
+
+  document.getElementById('rapportageModal').classList.remove('hidden');
+}
+
+function closeRapportage() {
+  document.getElementById('rapportageModal').classList.add('hidden');
+}
+
+async function downloadRapportage() {
+  const btn = document.getElementById('rapDownloadBtn');
+  const orig = btn.textContent;
+  btn.textContent = 'Bezig…';
+  btn.disabled = true;
+  try {
+    const canvas = await html2canvas(document.getElementById('rapCard'), {
+      scale: 2, backgroundColor: '#fffdf8', useCORS: true, logging: false
+    });
+    const orgSlug = (profile?.organizations?.name || 'lofly').toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+    const dateFrom = document.getElementById('dateFrom').value || '';
+    const a = document.createElement('a');
+    a.download = `rapportage-${orgSlug}-${dateFrom}.png`;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  } catch(e) { console.error('Download fout:', e); }
+  btn.textContent = orig;
+  btn.disabled = false;
+}
+
+document.getElementById('rapportageModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeRapportage();
+});
+
+// ── Employee table ───────────────────────────────────────────────────────────
 
 function renderEmployeeTable(employees, reviews, scans) {
   const tbody = document.getElementById('employeeBody');
