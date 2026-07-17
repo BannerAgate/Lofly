@@ -522,14 +522,24 @@ function renderEmployeeCard(emp) {
     }
 
     const splitLabel = r.splitFactor > 1 ? `<span style="font-size:11px;color:#9ca3af;margin-left:4px">(÷${r.splitFactor})</span>` : '';
+    const rowId = `review-expand-${r.id}-${emp.id}`;
+    const hasText = !!(r.review_text || '').trim();
 
-    reviewRows += `<tr>
+    reviewRows += `<tr style="cursor:${hasText ? 'pointer' : 'default'}" onclick="${hasText ? `toggleReviewText('${rowId}')` : ''}">
       <td style="color:#6b7280;white-space:nowrap">${formatDate(r.review_date)}</td>
-      <td>${escHtml(r.reviewer_name || 'Anoniem')}</td>
+      <td>
+        <span style="font-weight:500">${escHtml(r.reviewer_name || 'Anoniem')}</span>
+        ${hasText ? `<span style="font-size:11px;color:#9ca3af;margin-left:6px">▾ lees review</span>` : ''}
+      </td>
       <td>${getSourceBadge(r.source)}</td>
       <td>${renderStars(r.star_rating)}</td>
-      <td class="amount-cell ${isPos ? '' : ''}">${bedragLabel}${splitLabel}${extraBadge}</td>
-    </tr>`;
+      <td class="amount-cell">${bedragLabel}${splitLabel}${extraBadge}</td>
+    </tr>
+    ${hasText ? `<tr id="${rowId}" style="display:none;background:#f8fafc">
+      <td colspan="5" style="padding:12px 16px 16px 16px;font-size:13px;color:#374151;line-height:1.6;border-top:none">
+        <div style="border-left:3px solid var(--orange);padding-left:12px;font-style:italic">${escHtml(r.review_text)}</div>
+      </td>
+    </tr>` : ''}`;
   });
 
   // Terugrekening-rij (toon apart als drempel gehaald)
@@ -602,6 +612,15 @@ function renderEmployeeCard(emp) {
       </div>
     </div>
   </div>`;
+}
+
+// ============================================================
+// Toggle reviewtekst in/uitklappen
+// ============================================================
+function toggleReviewText(rowId) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
 }
 
 // ============================================================
