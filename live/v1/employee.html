@@ -119,6 +119,9 @@
         </table>
       </div>
     </div>
+
+    <!-- Provisie sectie (alleen admin/systeembeheerder) -->
+    <div id="provisieSection" style="display:none"></div>
   </main>
 </div>
 
@@ -131,6 +134,9 @@ let empScans = [];
 let empReviews = [];
 let allScans = [];
 let allReviews = [];
+let allSecondReviews = [];
+let allDeductions = [];
+let provisieSettings = { portals: ['google','klantenvertellen'], bedrag_basis: 15, bedrag_drempel: 25, drempel_count: 5 };
 
 const params = new URLSearchParams(location.search);
 const empId = params.get('id');
@@ -155,15 +161,22 @@ const toYMD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}
 })();
 
 async function loadEmployee() {
-  // Fetch employee and all reviews in parallel; qr_scans is optional (table may not exist yet)
-  const [empRes, revRes] = await Promise.all([
+  const [empRes, revRes, rev2Res, dedRes, orgRes] = await Promise.all([
     getSupabase().from('employees').select('*').eq('id', empId).single(),
-    getSupabase().from('reviews').select('*').eq('employee_id', empId).order('review_date', { ascending: false })
+    getSupabase().from('reviews').select('*').eq('employee_id', empId).order('review_date', { ascending: false }),
+    getSupabase().from('reviews').select('*').eq('second_employee_id', empId).order('review_date', { ascending: false }),
+    getSupabase().from('provisie_deductions').select('*').eq('employee_id', empId),
+    getSupabase().from('organizations').select('provisie_settings').eq('id', profile.organization_id).single(),
   ]);
 
   if (empRes.error || !empRes.data) { location.href = 'employees.html'; return; }
   emp = empRes.data;
   allReviews = revRes.data || [];
+  allSecondReviews = rev2Res.data || [];
+  allDeductions = dedRes.data || [];
+  if (orgRes.data?.provisie_settings) {
+    provisieSettings = { ...provisieSettings, ...orgRes.data.provisie_settings };
+  }
 
   // Try to load QR scans — table may not exist yet, so handle gracefully
   try {
@@ -243,6 +256,7 @@ function applyDateFilter() {
   renderScansChart();
   renderStarsChart();
   renderReviewsTable();
+  if (isAdmin(profile)) renderProvisieSection(dateFrom, dateTo);
 }
 
 function renderScansChart() {
@@ -339,13 +353,142 @@ function renderReviewsTable() {
     tbody.innerHTML = '<tr><td colspan="5" style="padding:24px;color:#9ca3af;text-align:center">Geen gekoppelde reviews</td></tr>';
     return;
   }
-  tbody.innerHTML = empReviews.map(r => `<tr>
-    <td>${formatDate(r.review_date)}</td>
-    <td>${escHtml(r.reviewer_name || '—')}</td>
-    <td>${getSourceBadge(r.source)}</td>
-    <td>${renderStars(r.star_rating)}</td>
-    <td>${getStatusBadge(r.status)}</td>
-  </tr>`).join('');
+  tbody.innerHTML = empReviews.map(r => {
+    const hasText = !!(r.review_text || '').trim();
+    const rowId = `rev-expand-${r.id}`;
+    return `
+    <tr style="cursor:${hasText ? 'pointer' : 'default'}" onclick="${hasText ? `toggleReviewRow('${rowId}')` : ''}">
+      <td>${formatDate(r.review_date)}</td>
+      <td>${escHtml(r.reviewer_name || '—')}</td>
+      <td>${getSourceBadge(r.source)}</td>
+      <td>${renderStars(r.star_rating)}</td>
+      <td>${getStatusBadge(r.status)}</td>
+    </tr>
+    ${hasText ? `<tr id="${rowId}" style="display:none;background:#f8fafc">
+      <td colspan="5" style="padding:12px 16px 16px;font-size:13px;color:#374151;line-height:1.6;border-top:none">
+        <div style="border-left:3px solid var(--orange);padding-left:12px;font-style:italic">${escHtml(r.review_text)}</div>
+      </td>
+    </tr>` : ''}`;
+  }).join('');
+}
+
+function toggleReviewRow(rowId) {
+  const row = document.getElementById(rowId);
+  if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+
+function renderProvisieSection(dateFrom, dateTo) {
+  const s = provisieSettings;
+  const basis    = s.bedrag_basis   ?? 15;
+  const drempel  = s.bedrag_drempel ?? 25;
+  const drempelN = s.drempel_count  ?? 5;
+
+  // Combineer primaire (splitFactor 1) en tweede-medewerker reviews (splitFactor 2)
+  const allCombined = [
+    ...allReviews.map(r => ({ ...r, splitFactor: r.second_employee_id ? 2 : 1 })),
+    ...allSecondReviews.map(r => ({ ...r, splitFactor: 2 })),
+  ];
+
+  // Filter: geplaatst + datumbereik
+  const inPeriod = allCombined.filter(r => {
+    if (r.status !== 'posted') return false;
+    const d = (r.review_date || '').substring(0, 10);
+    if (dateFrom && d < dateFrom) return false;
+    if (dateTo   && d > dateTo)   return false;
+    return true;
+  }).sort((a, b) => a.review_date > b.review_date ? 1 : -1);
+
+  const positief = inPeriod.filter(r => r.star_rating >= 4);
+  const positiefCount = positief.length;
+  const heeftDrempel = positiefCount >= drempelN;
+  const bedragPerStuk = heeftDrempel ? drempel : basis;
+
+  let reviewSubtotaal = 0;
+  const reviewRows = inPeriod.map(r => {
+    const isPos = r.star_rating >= 4;
+    const isNeu = Math.round(r.star_rating) === 3;
+    let bedragLabel = '—';
+    if (isPos) {
+      const raw = bedragPerStuk / r.splitFactor;
+      reviewSubtotaal += raw;
+      bedragLabel = `<span style="color:#16a34a;font-weight:600">+${formatEur(raw)}</span>`;
+    } else if (isNeu) {
+      bedragLabel = '<span style="color:#9ca3af">neutraal</span>';
+    } else {
+      bedragLabel = '<span style="color:#9ca3af">—</span>';
+    }
+    const splitLabel = r.splitFactor > 1 ? `<span style="font-size:11px;color:#9ca3af;margin-left:4px">(÷2)</span>` : '';
+    return `<tr>
+      <td style="color:#6b7280;white-space:nowrap">${formatDate(r.review_date)}</td>
+      <td>${escHtml(r.reviewer_name || 'Anoniem')}</td>
+      <td>${getSourceBadge(r.source)}</td>
+      <td>${renderStars(r.star_rating)}</td>
+      <td>${bedragLabel}${splitLabel}</td>
+    </tr>`;
+  }).join('');
+
+  // Terugrekening rij
+  let tabelVoetnoot = '';
+  if (heeftDrempel && basis !== drempel) {
+    tabelVoetnoot = `<tr style="background:#f0fdf4">
+      <td colspan="4" style="color:#15803d;font-size:12px;font-weight:600;padding:8px 16px">
+        ↑ Drempel van ${drempelN} positieve reviews gehaald — terugwerking toegepast
+      </td>
+      <td style="color:#15803d;font-weight:700;padding:8px 16px">+${formatEur((drempel - basis) * positiefCount)}</td>
+    </tr>`;
+  }
+
+  // Aftrekken in periode
+  const dedInPeriod = allDeductions.filter(d => {
+    if (dateFrom && d.deduction_date < dateFrom) return false;
+    if (dateTo   && d.deduction_date > dateTo)   return false;
+    return true;
+  });
+  let aftrekTotaal = 0;
+  const aftrekRows = dedInPeriod.map(d => {
+    aftrekTotaal += d.amount;
+    return `<tr style="background:#fef2f2">
+      <td style="color:#6b7280;white-space:nowrap">${formatDate(d.deduction_date)}</td>
+      <td colspan="2" style="color:#dc2626;font-size:12px">${escHtml(d.note || 'Aftrek')}</td>
+      <td></td>
+      <td style="color:#dc2626;font-weight:600">−${formatEur(d.amount)}</td>
+    </tr>`;
+  }).join('');
+
+  const totaal = reviewSubtotaal - aftrekTotaal;
+  const noData = inPeriod.length === 0 && dedInPeriod.length === 0;
+
+  const el = document.getElementById('provisieSection');
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="card" style="padding:0;overflow:hidden;margin-top:20px">
+      <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between">
+        <span class="card-title">Provisie</span>
+        <span style="font-size:18px;font-weight:800;color:var(--orange)">${formatEur(totaal)}</span>
+      </div>
+      ${noData ? `<div style="padding:24px;color:#9ca3af;text-align:center">Geen geplaatste reviews in deze periode</div>` : `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Datum</th><th>Klant</th><th>Portal</th><th>Beoordeling</th><th>Provisie</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${reviewRows}
+            ${tabelVoetnoot}
+            ${aftrekRows}
+          </tbody>
+        </table>
+      </div>
+      ${aftrekTotaal > 0 ? `<div style="padding:10px 20px;text-align:right;font-size:13px;color:#6b7280;border-top:1px solid #e5e7eb">
+        Reviews: ${formatEur(reviewSubtotaal)} &nbsp;·&nbsp; Aftrek: <span style="color:#dc2626">−${formatEur(aftrekTotaal)}</span> &nbsp;·&nbsp; Totaal: <span style="color:var(--orange);font-weight:700">${formatEur(totaal)}</span>
+      </div>` : ''}`}
+    </div>`;
+}
+
+function formatEur(amount) {
+  return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(amount || 0);
 }
 </script>
 </body>
