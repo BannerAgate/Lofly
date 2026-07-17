@@ -223,8 +223,12 @@ function applyDateFilter() {
   const dateFrom = document.getElementById('dateFrom').value;
   const dateTo = document.getElementById('dateTo').value;
 
-  // Filter reviews by date range
-  empReviews = allReviews.filter(r => {
+  // Filter reviews by date range — inclusief reviews als tweede medewerker
+  const combined = [...allReviews, ...allSecondReviews]
+    .filter((r, i, arr) => arr.findIndex(x => x.id === r.id) === i) // dedup
+    .sort((a, b) => a.review_date < b.review_date ? 1 : -1);
+
+  empReviews = combined.filter(r => {
     if (!r.review_date) return false;
     const d = r.review_date.substring(0, 10);
     if (dateFrom && d < dateFrom) return false;
