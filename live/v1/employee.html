@@ -137,6 +137,8 @@ let allReviews = [];
 let allSecondReviews = [];
 let allDeductions = [];
 let provisieSettings = { portals: ['google','klantenvertellen'], bedrag_basis: 15, bedrag_drempel: 25, drempel_count: 5 };
+let chartScansInstance = null;
+let chartStarsInstance = null;
 
 const params = new URLSearchParams(location.search);
 const empId = params.get('id');
@@ -281,7 +283,8 @@ function renderScansChart() {
     }).length
   );
 
-  new Chart(document.getElementById('chartScans').getContext('2d'), {
+  if (chartScansInstance) { chartScansInstance.destroy(); chartScansInstance = null; }
+  chartScansInstance = new Chart(document.getElementById('chartScans').getContext('2d'), {
     type: 'line',
     data: {
       labels: weeks.map(w => w.label),
@@ -306,7 +309,8 @@ function renderScansChart() {
 
 function renderStarsChart() {
   const counts = [1,2,3,4,5].map(s => empReviews.filter(r => Math.round(parseFloat(r.star_rating)) === s).length);
-  new Chart(document.getElementById('chartStars').getContext('2d'), {
+  if (chartStarsInstance) { chartStarsInstance.destroy(); chartStarsInstance = null; }
+  chartStarsInstance = new Chart(document.getElementById('chartStars').getContext('2d'), {
     type: 'bar',
     data: {
       labels: ['1★','2★','3★','4★','5★'],
