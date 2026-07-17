@@ -188,6 +188,7 @@
         <p class="page-subtitle" id="orgName">Laden...</p>
       </div>
       <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn btn-secondary btn-sm" id="settingsBtn" onclick="toggleSettings()" style="display:none">⚙️ Instellingen</button>
         <button class="btn btn-secondary btn-sm" onclick="herbereken()">↻ Herbereken</button>
       </div>
     </div>
@@ -204,7 +205,7 @@
       </div>
     </div>
 
-    <!-- Instellingen (alleen admin) -->
+    <!-- Instellingen (alleen systeembeheerder) -->
     <div class="provisie-settings-panel" id="settingsPanel" style="display:none">
       <h3>⚙️ Provisie-instellingen</h3>
       <div class="settings-grid">
@@ -307,7 +308,10 @@ let currentAftrekEmployeeId = null;
   document.getElementById('orgName').textContent = profile.organizations?.name || '';
   document.getElementById('appLayout').style.display = 'flex';
   document.getElementById('sidebarContainer').innerHTML = renderNav('provisie', profile);
-  document.getElementById('settingsPanel').style.display = 'block';
+  // Instellingen-knop alleen voor systeembeheerder
+  if (isSysteembeheerder(profile)) {
+    document.getElementById('settingsBtn').style.display = 'inline-flex';
+  }
 
   await loadSettings();
   await herbereken();
@@ -316,6 +320,14 @@ let currentAftrekEmployeeId = null;
 // ============================================================
 // Settings
 // ============================================================
+function toggleSettings() {
+  const panel = document.getElementById('settingsPanel');
+  const btn   = document.getElementById('settingsBtn');
+  const open  = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? '✕ Sluiten' : '⚙️ Instellingen';
+}
+
 async function loadSettings() {
   const { data: org } = await getSupabase()
     .from('organizations')
@@ -388,7 +400,7 @@ async function herbereken() {
   // Reviews ophalen (geplaatst + geselecteerde portals + datumbereik)
   let q = getSupabase()
     .from('reviews')
-    .select('id, reviewer_name, review_date, star_rating, source, status, employee_id, second_employee_id, employees!employee_id(name), second_employee:employees!second_employee_id(name)')
+    .select('id, reviewer_name, review_text, review_date, star_rating, source, status, employee_id, second_employee_id, employees!employee_id(name), second_employee:employees!second_employee_id(name)')
     .eq('status', 'posted')
     .in('source', settings.portals);
 
@@ -563,7 +575,10 @@ function renderEmployeeCard(emp) {
       <td style="color:#6b7280;white-space:nowrap">${formatDate(d.deduction_date)}</td>
       <td colspan="2" style="color:#dc2626;font-size:12px">${escHtml(d.note || 'Aftrek')}</td>
       <td></td>
-      <td class="amount-cell aftrek">−${formatEur(d.amount)}</td>
+      <td class="amount-cell aftrek" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span>−${formatEur(d.amount)}</span>
+        <button onclick="deleteAftrek('${d.id}')" title="Verwijder aftrek" style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:16px;line-height:1;padding:0 2px;opacity:.6" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.6">×</button>
+      </td>
     </tr>`;
   });
 
@@ -669,6 +684,17 @@ async function saveAftrek() {
   if (error) { showToast('Fout: ' + error.message, 'error'); return; }
   showToast('Aftrek opgeslagen');
   closeAftrekModal();
+  await herbereken();
+}
+
+async function deleteAftrek(deductionId) {
+  if (!confirm('Aftrek verwijderen?')) return;
+  const { error } = await getSupabase()
+    .from('provisie_deductions')
+    .delete()
+    .eq('id', deductionId);
+  if (error) { showToast('Fout: ' + error.message, 'error'); return; }
+  showToast('Aftrek verwijderd');
   await herbereken();
 }
 
