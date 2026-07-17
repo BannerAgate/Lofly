@@ -274,6 +274,21 @@
   </div>
 </div>
 
+<!-- Bevestiging verwijder modal -->
+<div class="modal-backdrop hidden" id="confirmModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2 class="modal-title">Aftrekpost verwijderen</h2>
+      <button class="modal-close" onclick="closeConfirmModal()">✕</button>
+    </div>
+    <p style="padding:4px 0 20px;color:#374151;font-size:14px">Weet je zeker dat je de aftrekpost wenst te verwijderen?</p>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeConfirmModal()">Annuleren</button>
+      <button class="btn btn-danger" id="confirmDeleteBtn">Ja, verwijderen</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script>
 <script>
@@ -541,7 +556,6 @@ function renderEmployeeCard(emp) {
       <td style="color:#6b7280;white-space:nowrap">${formatDate(r.review_date)}</td>
       <td>
         <span style="font-weight:500">${escHtml(r.reviewer_name || 'Anoniem')}</span>
-        ${hasText ? `<span style="font-size:11px;color:#9ca3af;margin-left:6px">▾ lees review</span>` : ''}
       </td>
       <td>${getSourceBadge(r.source)}</td>
       <td>${renderStars(r.star_rating)}</td>
@@ -687,15 +701,22 @@ async function saveAftrek() {
   await herbereken();
 }
 
-async function deleteAftrek(deductionId) {
-  if (!confirm('Aftrek verwijderen?')) return;
-  const { error } = await getSupabase()
-    .from('provisie_deductions')
-    .delete()
-    .eq('id', deductionId);
-  if (error) { showToast('Fout: ' + error.message, 'error'); return; }
-  showToast('Aftrek verwijderd');
-  await herbereken();
+function deleteAftrek(deductionId) {
+  document.getElementById('confirmModal').classList.remove('hidden');
+  document.getElementById('confirmDeleteBtn').onclick = async () => {
+    closeConfirmModal();
+    const { error } = await getSupabase()
+      .from('provisie_deductions')
+      .delete()
+      .eq('id', deductionId);
+    if (error) { showToast('Fout: ' + error.message, 'error'); return; }
+    showToast('Aftrek verwijderd');
+    await herbereken();
+  };
+}
+
+function closeConfirmModal() {
+  document.getElementById('confirmModal').classList.add('hidden');
 }
 
 // ============================================================
