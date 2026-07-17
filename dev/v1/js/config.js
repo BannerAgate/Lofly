@@ -60,7 +60,7 @@ async function getCurrentProfile() {
   return { ...profile, organizations: org || null };
 }
 
-async function requireAuth(redirectTo = '/dev/v1/index.html') {
+async function requireAuth(redirectTo = '/') {
   const user = await getCurrentUser();
   if (!user) {
     window.location.href = redirectTo;
@@ -71,7 +71,7 @@ async function requireAuth(redirectTo = '/dev/v1/index.html') {
 
 async function signOut() {
   await getSupabase().auth.signOut();
-  window.location.href = '/dev/v1/index.html';
+  window.location.href = '/';
 }
 
 // ============================================================
