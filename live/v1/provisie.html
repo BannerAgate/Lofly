@@ -563,7 +563,7 @@ function renderEmployeeCard(emp) {
   <div class="employee-card" id="emp-card-${emp.id}">
     <div class="employee-card-header" onclick="toggleCard('${emp.id}')">
       <div class="employee-name">
-        <span>${escHtml(emp.name)}</span>
+        <a href="employee.html?id=${emp.id}" style="color:var(--navy);text-decoration:none;font-weight:700" onmouseover="this.style.color='var(--orange)'" onmouseout="this.style.color='var(--navy)'">${escHtml(emp.name)}</a>
         ${positiefCount > 0 ? `<span style="font-size:12px;font-weight:500;color:#6b7280">${positiefCount} positieve review${positiefCount !== 1 ? 's' : ''}</span>` : ''}
         ${heeftDrempel ? `<span style="font-size:11px;background:#dcfce7;color:#15803d;border-radius:4px;padding:2px 7px;font-weight:600">drempel gehaald ✓</span>` : ''}
       </div>
