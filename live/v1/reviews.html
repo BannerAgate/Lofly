@@ -130,9 +130,22 @@
 
     <div class="form-group">
       <label class="form-label">Koppel aan medewerker</label>
-      <select class="form-control" id="modalEmployee">
+      <select class="form-control" id="modalEmployee" onchange="syncSecondEmployeeOptions()">
         <option value="">Geen medewerker</option>
       </select>
+    </div>
+
+    <div id="secondEmployeeWrapper" style="display:none;margin-top:8px;display:none">
+      <div style="display:flex;align-items:center;gap:8px">
+        <select class="form-control" id="modalEmployee2" style="flex:1">
+          <option value="">Geen medewerker</option>
+        </select>
+        <button type="button" onclick="removeSecondEmployee()" style="background:none;border:none;cursor:pointer;color:#6b7280;font-size:18px;padding:4px 6px;line-height:1" title="Verwijder extra medewerker">×</button>
+      </div>
+    </div>
+
+    <div id="addSecondEmployeeLink" style="margin-top:8px">
+      <button type="button" onclick="addSecondEmployee()" style="background:none;border:none;cursor:pointer;color:#F97316;font-size:13px;padding:0;text-decoration:underline">Koppel aan extra medewerker +</button>
     </div>
 
     <div class="modal-footer">
@@ -154,6 +167,7 @@ let allReviews = [];
 let currentStatus = 'pending';
 let currentReviewId = null;
 let currentEmployeeId = null;
+let currentSecondEmployeeId = null;
 let employees = [];
 
 // ============================================================
@@ -226,7 +240,7 @@ async function fetchReviews() {
 
   const { data, error } = await getSupabase()
     .from('reviews')
-    .select('*, employees(name)')
+    .select('*, employees!employee_id(name), second_employee:employees!second_employee_id(name)')
     .order('review_date', { ascending: false });
 
   if (error) {
@@ -321,7 +335,7 @@ function renderTable(reviews) {
       <td>${getSourceBadge(r.source)}</td>
       <td>${renderStars(r.star_rating)}</td>
       <td>${getStatusBadge(r.status)}</td>
-      <td style="color:#6b7280">${r.employees?.name || '—'}</td>
+      <td style="color:#6b7280">${r.employees?.name ? (r.second_employee?.name ? `${r.employees.name}<br><span style="font-size:11px">${r.second_employee.name}</span>` : r.employees.name) : '—'}</td>
       <td>
         <button class="btn btn-secondary btn-sm" onclick="openModal('${r.id}')">Behandelen</button>
       </td>
@@ -344,7 +358,15 @@ function openModal(reviewId) {
   document.getElementById('modalAIResponse').textContent = r.ai_response || '(Nog geen AI-suggestie gegenereerd)';
   document.getElementById('modalFinalResponse').value = r.final_response || r.ai_response || '';
   currentEmployeeId = r.employee_id || null;
+  currentSecondEmployeeId = r.second_employee_id || null;
   document.getElementById('modalEmployee').value = r.employee_id || '';
+  syncSecondEmployeeOptions();
+  if (r.second_employee_id) {
+    showSecondEmployeeDropdown();
+    document.getElementById('modalEmployee2').value = r.second_employee_id;
+  } else {
+    hideSecondEmployeeDropdown();
+  }
   document.getElementById('postBtnText').textContent = r.status === 'posted' ? 'Herplaatsen' : 'Plaatsen';
 
   document.getElementById('reviewModal').classList.remove('hidden');
@@ -352,18 +374,55 @@ function openModal(reviewId) {
 
 async function closeModal() {
   const selectedEmployee = document.getElementById('modalEmployee').value || null;
-  if (currentReviewId && selectedEmployee !== currentEmployeeId) {
+  const secondWrapper = document.getElementById('secondEmployeeWrapper');
+  const selectedSecond = (secondWrapper.style.display !== 'none' ? document.getElementById('modalEmployee2').value : '') || null;
+  if (currentReviewId && (selectedEmployee !== currentEmployeeId || selectedSecond !== currentSecondEmployeeId)) {
     await getSupabase()
       .from('reviews')
-      .update({ employee_id: selectedEmployee, updated_at: new Date().toISOString() })
+      .update({ employee_id: selectedEmployee, second_employee_id: selectedSecond, updated_at: new Date().toISOString() })
       .eq('id', currentReviewId);
-    // Update local cache
     const r = allReviews.find(x => x.id === currentReviewId);
-    if (r) r.employee_id = selectedEmployee;
+    if (r) { r.employee_id = selectedEmployee; r.second_employee_id = selectedSecond; }
   }
   document.getElementById('reviewModal').classList.add('hidden');
   currentReviewId = null;
   currentEmployeeId = null;
+  currentSecondEmployeeId = null;
+}
+
+function addSecondEmployee() {
+  showSecondEmployeeDropdown();
+}
+
+function showSecondEmployeeDropdown() {
+  const wrapper = document.getElementById('secondEmployeeWrapper');
+  wrapper.style.display = 'block';
+  document.getElementById('addSecondEmployeeLink').style.display = 'none';
+  syncSecondEmployeeOptions();
+}
+
+function hideSecondEmployeeDropdown() {
+  const wrapper = document.getElementById('secondEmployeeWrapper');
+  wrapper.style.display = 'none';
+  document.getElementById('addSecondEmployeeLink').style.display = 'block';
+  document.getElementById('modalEmployee2').value = '';
+}
+
+function removeSecondEmployee() {
+  hideSecondEmployeeDropdown();
+}
+
+function syncSecondEmployeeOptions() {
+  const firstVal = document.getElementById('modalEmployee').value;
+  const sel2 = document.getElementById('modalEmployee2');
+  const currentVal2 = sel2.value;
+  sel2.innerHTML = '<option value="">Geen medewerker</option>';
+  employees.forEach(e => {
+    if (e.id !== firstVal) {
+      sel2.innerHTML += `<option value="${e.id}">${e.name}</option>`;
+    }
+  });
+  if (currentVal2 && currentVal2 !== firstVal) sel2.value = currentVal2;
 }
 
 // Close modal on backdrop click
@@ -378,10 +437,12 @@ async function updateReviewStatus(status) {
   if (!currentReviewId) return;
   const finalResponse = document.getElementById('modalFinalResponse').value.trim();
   const employeeId = document.getElementById('modalEmployee').value || null;
+  const secondWrapper = document.getElementById('secondEmployeeWrapper');
+  const secondEmployeeId = (secondWrapper.style.display !== 'none' ? document.getElementById('modalEmployee2').value : '') || null;
 
   const { error } = await getSupabase()
     .from('reviews')
-    .update({ status, final_response: finalResponse || null, employee_id: employeeId, updated_at: new Date().toISOString() })
+    .update({ status, final_response: finalResponse || null, employee_id: employeeId, second_employee_id: secondEmployeeId, updated_at: new Date().toISOString() })
     .eq('id', currentReviewId);
 
   if (error) { showToast('Fout: ' + error.message, 'error'); return; }
@@ -409,13 +470,15 @@ async function postReview() {
   if (r.source === 'google' && !r.external_id) { showToast('Review heeft geen extern ID — kan niet worden geplaatst', 'error'); return; }
 
   const employeeId = document.getElementById('modalEmployee').value || null;
+  const secondWrapper2 = document.getElementById('secondEmployeeWrapper');
+  const secondEmployeeId2 = (secondWrapper2.style.display !== 'none' ? document.getElementById('modalEmployee2').value : '') || null;
   document.getElementById('postBtnText').textContent = 'Bezig...';
 
   try {
     // Sla definitieve reactie op in Supabase
     await getSupabase()
       .from('reviews')
-      .update({ final_response: finalResponse, employee_id: employeeId, status: 'approved', updated_at: new Date().toISOString() })
+      .update({ final_response: finalResponse, employee_id: employeeId, second_employee_id: secondEmployeeId2, status: 'approved', updated_at: new Date().toISOString() })
       .eq('id', currentReviewId);
 
     if (r.source === 'klantenvertellen') {

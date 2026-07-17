@@ -65,7 +65,7 @@
 
     .employee-fn {
       font-size: 14px;
-      color: rgba(255,255,255,.5);
+      color: rgba(255,255,255,.85);
       margin-bottom: 28px;
     }
 
@@ -182,8 +182,8 @@ function renderPage(employeeName, orgName) {
   card.innerHTML = `
     <div class="logo-mark"></div>
     <div class="company-name">${escHtml(orgName || '')}</div>
-    <div class="employee-name">${escHtml(employeeName || '')}</div>
-    <div class="employee-fn">Bedankt voor je bezoek!</div>
+    <div class="employee-name">${escHtml((employeeName || '').split(' ')[0])}</div>
+    <div class="employee-fn">bedankt jou voor jouw bezoek!</div>
     <div class="stars">
       <span class="star">★</span>
       <span class="star">★</span>
