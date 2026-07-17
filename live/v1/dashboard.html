@@ -246,7 +246,7 @@ let rapportageData = null;
     document.getElementById('orgName').textContent = profile.organizations?.name || '';
     document.getElementById('appLayout').style.display = 'flex';
     console.log('[Dashboard] layout shown');
-    document.getElementById('sidebarContainer').innerHTML = renderNav('dashboard');
+    document.getElementById('sidebarContainer').innerHTML = renderNav('dashboard', profile);
     console.log('[Dashboard] calling loadDashboard');
     await loadDashboard();
     console.log('[Dashboard] done');

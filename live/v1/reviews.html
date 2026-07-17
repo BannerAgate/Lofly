@@ -192,7 +192,7 @@ let employees = [];
   console.log('[lofly] reviews IIFE: layout tonen...');
   document.getElementById('orgName').textContent = profile.organizations?.name || '';
   document.getElementById('appLayout').style.display = 'flex';
-  document.getElementById('sidebarContainer').innerHTML = renderNav('reviews');
+  document.getElementById('sidebarContainer').innerHTML = renderNav('reviews', profile);
 
   // Readonly: verberg actieknoppen in modal
   if (!isReviewer(profile)) {

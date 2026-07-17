@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lofly — Provisie</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="css/lofly.css">
+  <style>
+    .provisie-settings-panel {
+      background: #f8fafc;
+      border: 1px solid var(--gray-200);
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 24px;
+    }
+    .provisie-settings-panel h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--navy);
+      margin: 0 0 16px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+    .settings-field label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      display: block;
+      margin-bottom: 5px;
+    }
+    .settings-field input[type="number"] {
+      width: 100%;
+    }
+    .portal-checkboxes {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      margin-top: 6px;
+    }
+    .portal-checkboxes label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--navy);
+      cursor: pointer;
+    }
+    .portal-checkboxes input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      accent-color: var(--orange);
+    }
+    .employee-card {
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: 10px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .employee-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--gray-200);
+      cursor: pointer;
+      user-select: none;
+    }
+    .employee-card-header:hover { background: #f1f5f9; }
+    .employee-name {
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--navy);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .provisie-total {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--orange);
+    }
+    .employee-card-body {
+      padding: 0;
+    }
+    .provisie-table th, .provisie-table td {
+      padding: 10px 16px;
+      font-size: 13px;
+    }
+    .provisie-table th {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: #6b7280;
+      background: #f8fafc;
+      font-weight: 600;
+    }
+    .provisie-table tr:last-child td { border-bottom: none; }
+    .amount-cell {
+      font-weight: 700;
+      color: #16a34a;
+      white-space: nowrap;
+    }
+    .amount-cell.aftrek { color: #dc2626; }
+    .amount-cell.terugrekening {
+      color: #16a34a;
+    }
+    .terugrekening-badge {
+      font-size: 10px;
+      background: #dcfce7;
+      color: #15803d;
+      border-radius: 4px;
+      padding: 1px 5px;
+      margin-left: 4px;
+      font-weight: 600;
+    }
+    .employee-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      border-top: 1px solid var(--gray-200);
+      background: #fafafa;
+    }
+    .add-aftrek-btn {
+      background: none;
+      border: 1px dashed #d1d5db;
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 12px;
+      color: #6b7280;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .add-aftrek-btn:hover { border-color: var(--orange); color: var(--orange); background: #fff3e8; }
+    .totaal-row {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      font-size: 13px;
+      color: #6b7280;
+    }
+    .totaal-row span { font-weight: 700; color: var(--navy); }
+    .no-reviews {
+      padding: 28px;
+      text-align: center;
+      color: #9ca3af;
+      font-size: 13px;
+    }
+    .collapse-icon { transition: transform .2s; font-size: 12px; color: #9ca3af; }
+    .employee-card.collapsed .collapse-icon { transform: rotate(-90deg); }
+    .employee-card.collapsed .employee-card-body { display: none; }
+    .date-filter-label { font-size: 12px; font-weight: 600; color: #6b7280; display: block; margin-bottom: 3px; }
+    .settings-save-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--gray-200);
+    }
+    .drempel-note {
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-layout" id="appLayout" style="display:none">
+  <div id="sidebarContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Provisie</h1>
+        <p class="page-subtitle" id="orgName">Laden...</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn btn-secondary btn-sm" onclick="herbereken()">↻ Herbereken</button>
+      </div>
+    </div>
+
+    <!-- Datum filter -->
+    <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap">
+      <div>
+        <label class="date-filter-label" for="dateFrom">Van</label>
+        <input type="date" class="form-control" id="dateFrom" style="width:150px" onchange="herbereken()">
+      </div>
+      <div>
+        <label class="date-filter-label" for="dateTo">Tot en met</label>
+        <input type="date" class="form-control" id="dateTo" style="width:150px" onchange="herbereken()">
+      </div>
+    </div>
+
+    <!-- Instellingen (alleen admin) -->
+    <div class="provisie-settings-panel" id="settingsPanel" style="display:none">
+      <h3>⚙️ Provisie-instellingen</h3>
+      <div class="settings-grid">
+        <div class="settings-field">
+          <label>Portals die meetellen</label>
+          <div class="portal-checkboxes">
+            <label><input type="checkbox" id="portalGoogle"> Google</label>
+            <label><input type="checkbox" id="portalKV"> Klantenvertellen</label>
+          </div>
+        </div>
+        <div class="settings-field">
+          <label>Bedrag per review (basis)</label>
+          <input type="number" class="form-control" id="setBedragBasis" min="0" step="0.01">
+          <div class="drempel-note">Reviews 1 t/m drempel−1</div>
+        </div>
+        <div class="settings-field">
+          <label>Drempel (# reviews)</label>
+          <input type="number" class="form-control" id="setDrempel" min="1" step="1">
+          <div class="drempel-note">Vanaf dit aantal wordt alles omgerekend</div>
+        </div>
+        <div class="settings-field">
+          <label>Bedrag per review (drempel gehaald)</label>
+          <input type="number" class="form-control" id="setBedragDrempel" min="0" step="0.01">
+          <div class="drempel-note">Met terugwerkende kracht</div>
+        </div>
+      </div>
+      <div class="settings-save-row">
+        <button class="btn btn-primary btn-sm" onclick="saveSettings()">Opslaan</button>
+      </div>
+    </div>
+
+    <!-- Provisie per medewerker -->
+    <div id="provisieContainer">
+      <div class="no-reviews">Laden...</div>
+    </div>
+  </main>
+</div>
+
+<!-- Aftrek modal -->
+<div class="modal-backdrop hidden" id="aftrekModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h2 class="modal-title" id="aftrekModalTitle">Aftrek toevoegen</h2>
+      <button class="modal-close" onclick="closeAftrekModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Medewerker</label>
+      <input type="text" class="form-control" id="aftrekEmployeeName" disabled style="background:#f8fafc">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Bedrag aftrek (€)</label>
+      <input type="number" class="form-control" id="aftrekBedrag" min="0" step="0.01" placeholder="bijv. 50">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Datum</label>
+      <input type="date" class="form-control" id="aftrekDatum">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Reden / toelichting (optioneel)</label>
+      <textarea class="form-control" id="aftrekNote" rows="3" placeholder="bijv. Nalatigheid afhandeling klant X"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAftrekModal()">Annuleren</button>
+      <button class="btn btn-danger" onclick="saveAftrek()">Aftrek opslaan</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script>
+let profile = null;
+let allReviews = [];
+let allDeductions = [];
+let allEmployees = [];
+let settings = { portals: ['google'], bedrag_basis: 15, bedrag_drempel: 25, drempel_count: 5 };
+let currentAftrekEmployeeId = null;
+
+// ============================================================
+// Init
+// ============================================================
+(async () => {
+  const now = new Date();
+  const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const toYMD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  document.getElementById('dateFrom').value = toYMD(firstOfMonth);
+  document.getElementById('dateTo').value = toYMD(now);
+
+  const user = await requireAuth('/');
+  if (!user) return;
+  profile = await getCurrentProfile();
+  if (!profile) { signOut(); return; }
+
+  // Alleen admin/systeembeheerder mag deze pagina zien
+  if (!isAdmin(profile)) {
+    document.body.innerHTML = '<div style="padding:40px;font-family:sans-serif;color:#1a2335"><h2>Geen toegang</h2><p>Deze pagina is alleen toegankelijk voor admins en systeembeheerders.</p><a href="/reviews">Terug naar reviews</a></div>';
+    return;
+  }
+
+  document.getElementById('orgName').textContent = profile.organizations?.name || '';
+  document.getElementById('appLayout').style.display = 'flex';
+  document.getElementById('sidebarContainer').innerHTML = renderNav('provisie', profile);
+  document.getElementById('settingsPanel').style.display = 'block';
+
+  await loadSettings();
+  await herbereken();
+})();
+
+// ============================================================
+// Settings
+// ============================================================
+async function loadSettings() {
+  const { data: org } = await getSupabase()
+    .from('organizations')
+    .select('provisie_settings')
+    .eq('id', profile.organization_id)
+    .single();
+
+  if (org?.provisie_settings) {
+    settings = { ...settings, ...org.provisie_settings };
+  }
+
+  // Vul settings UI
+  document.getElementById('portalGoogle').checked = settings.portals.includes('google');
+  document.getElementById('portalKV').checked = settings.portals.includes('klantenvertellen');
+  document.getElementById('setBedragBasis').value = settings.bedrag_basis ?? 15;
+  document.getElementById('setBedragDrempel').value = settings.bedrag_drempel ?? 25;
+  document.getElementById('setDrempel').value = settings.drempel_count ?? 5;
+}
+
+async function saveSettings() {
+  const portals = [];
+  if (document.getElementById('portalGoogle').checked) portals.push('google');
+  if (document.getElementById('portalKV').checked) portals.push('klantenvertellen');
+
+  settings = {
+    portals,
+    bedrag_basis: parseFloat(document.getElementById('setBedragBasis').value) || 15,
+    bedrag_drempel: parseFloat(document.getElementById('setBedragDrempel').value) || 25,
+    drempel_count: parseInt(document.getElementById('setDrempel').value) || 5,
+  };
+
+  const { error } = await getSupabase()
+    .from('organizations')
+    .update({ provisie_settings: settings })
+    .eq('id', profile.organization_id);
+
+  if (error) { showToast('Opslaan mislukt: ' + error.message, 'error'); return; }
+  showToast('Instellingen opgeslagen');
+  await herbereken();
+}
+
+// ============================================================
+// Data laden & berekenen
+// ============================================================
+async function herbereken() {
+  const dateFrom = document.getElementById('dateFrom').value;
+  const dateTo   = document.getElementById('dateTo').value;
+  const container = document.getElementById('provisieContainer');
+  container.innerHTML = '<div class="no-reviews">Berekenen...</div>';
+
+  // Reviews ophalen (geplaatst + geselecteerde portals + datumbereik)
+  let q = getSupabase()
+    .from('reviews')
+    .select('id, reviewer_name, review_date, star_rating, source, status, employee_id, second_employee_id, employees!employee_id(name), second_employee:employees!second_employee_id(name)')
+    .eq('status', 'posted')
+    .in('source', settings.portals.length ? settings.portals : ['google']);
+
+  if (dateFrom) q = q.gte('review_date', dateFrom);
+  if (dateTo)   q = q.lte('review_date', dateTo + 'T23:59:59');
+
+  const [revRes, empRes, dedRes] = await Promise.all([
+    q.order('review_date', { ascending: true }),
+    getSupabase().from('employees').select('id, name').order('name'),
+    getSupabase().from('provisie_deductions')
+      .select('*')
+      .eq('organization_id', profile.organization_id),
+  ]);
+
+  allReviews   = revRes.data  || [];
+  allEmployees = empRes.data  || [];
+  allDeductions = dedRes.data || [];
+
+  // Filter aftrekken op datumbereik
+  const filteredDeductions = allDeductions.filter(d => {
+    if (dateFrom && d.deduction_date < dateFrom) return false;
+    if (dateTo   && d.deduction_date > dateTo)   return false;
+    return true;
+  });
+
+  renderProvisie(filteredDeductions);
+}
+
+// ============================================================
+// Bereken provisie per medewerker
+// ============================================================
+function calcProvisie(positiefCount) {
+  const basis   = settings.bedrag_basis   ?? 15;
+  const drempel = settings.bedrag_drempel ?? 25;
+  const n       = settings.drempel_count  ?? 5;
+
+  if (positiefCount === 0) return { lines: [], subtotaal: 0, terugrekening: false };
+
+  const bedragPerStuk = positiefCount >= n ? drempel : basis;
+  const terugrekening = positiefCount >= n && basis !== drempel;
+
+  return { bedragPerStuk, terugrekening };
+}
+
+function renderProvisie(filteredDeductions) {
+  const container = document.getElementById('provisieContainer');
+
+  // Bouw per-medewerker overzicht
+  const employeeMap = {}; // id → { name, reviews: [], deductions: [] }
+
+  allEmployees.forEach(e => {
+    employeeMap[e.id] = { id: e.id, name: e.name, reviews: [], deductions: [] };
+  });
+
+  // Reviews toewijzen (gesplitst bij 2 medewerkers)
+  allReviews.forEach(r => {
+    const hasSecond = !!r.second_employee_id;
+    const splitFactor = hasSecond ? 2 : 1;
+
+    const addToEmployee = (empId) => {
+      if (!empId || !employeeMap[empId]) return;
+      employeeMap[empId].reviews.push({ ...r, splitFactor });
+    };
+
+    addToEmployee(r.employee_id);
+    if (hasSecond) addToEmployee(r.second_employee_id);
+  });
+
+  // Aftrekken toewijzen
+  filteredDeductions.forEach(d => {
+    if (employeeMap[d.employee_id]) {
+      employeeMap[d.employee_id].deductions.push(d);
+    }
+  });
+
+  // Alleen medewerkers met reviews of aftrekken tonen
+  const activeEmployees = Object.values(employeeMap).filter(e =>
+    e.reviews.length > 0 || e.deductions.length > 0
+  );
+
+  if (!activeEmployees.length) {
+    container.innerHTML = `<div class="no-reviews">
+      <div style="font-size:32px;margin-bottom:8px">📭</div>
+      <div style="font-weight:600;color:#374151">Geen geplaatste reviews gevonden</div>
+      <div style="color:#9ca3af;margin-top:4px">Pas het datumbereik of de portal-instellingen aan.</div>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = activeEmployees.map(emp => renderEmployeeCard(emp)).join('');
+}
+
+function renderEmployeeCard(emp) {
+  const basis    = settings.bedrag_basis   ?? 15;
+  const drempel  = settings.bedrag_drempel ?? 25;
+  const drempelN = settings.drempel_count  ?? 5;
+
+  // Tel positieve reviews (4-5 sterren)
+  const positief = emp.reviews.filter(r => r.star_rating >= 4);
+  const positiefCount = positief.length;
+  const heeftDrempel = positiefCount >= drempelN;
+  const bedragPerStuk = heeftDrempel ? drempel : basis;
+
+  // Review-regels
+  let reviewRows = '';
+  let reviewSubtotaal = 0;
+
+  emp.reviews.forEach(r => {
+    const isPos = r.star_rating >= 4;
+    const isNeu = Math.round(r.star_rating) === 3;
+
+    let bedrag = 0;
+    let bedragLabel = '—';
+    let extraBadge = '';
+
+    if (isPos) {
+      const raw = bedragPerStuk / r.splitFactor;
+      bedrag = raw;
+      reviewSubtotaal += raw;
+      const rawBasis = basis / r.splitFactor;
+      if (heeftDrempel && basis !== drempel) {
+        extraBadge = `<span class="terugrekening-badge">↑ omgerekend</span>`;
+        bedragLabel = `+${formatEur(raw)}`;
+      } else {
+        bedragLabel = `+${formatEur(raw)}`;
+      }
+    } else if (isNeu) {
+      bedragLabel = '<span style="color:#9ca3af">neutraal</span>';
+    } else {
+      bedragLabel = '<span style="color:#9ca3af">—</span>';
+    }
+
+    const splitLabel = r.splitFactor > 1 ? `<span style="font-size:11px;color:#9ca3af;margin-left:4px">(÷${r.splitFactor})</span>` : '';
+
+    reviewRows += `<tr>
+      <td style="color:#6b7280;white-space:nowrap">${formatDate(r.review_date)}</td>
+      <td>${escHtml(r.reviewer_name || 'Anoniem')}</td>
+      <td>${getSourceBadge(r.source)}</td>
+      <td>${renderStars(r.star_rating)}</td>
+      <td class="amount-cell ${isPos ? '' : ''}">${bedragLabel}${splitLabel}${extraBadge}</td>
+    </tr>`;
+  });
+
+  // Terugrekening-rij (toon apart als drempel gehaald)
+  let tabelVoetnoot = '';
+  if (heeftDrempel && basis !== drempel) {
+    const verschil = (drempel - basis) * positiefCount;
+    tabelVoetnoot = `<tr style="background:#f0fdf4">
+      <td colspan="4" style="color:#15803d;font-size:12px;font-weight:600;padding:8px 16px">
+        ↑ Drempel van ${drempelN} positieve reviews gehaald — terugwerking toegepast
+      </td>
+      <td class="amount-cell" style="color:#15803d;padding:8px 16px">+${formatEur((drempel - basis) * positiefCount / 1)} <span style="font-size:10px;color:#86efac">(aanvulling)</span></td>
+    </tr>`;
+  }
+
+  // Aftrekken
+  let aftrekRows = '';
+  let aftrekTotaal = 0;
+  emp.deductions.forEach(d => {
+    aftrekTotaal += d.amount;
+    aftrekRows += `<tr style="background:#fef2f2">
+      <td style="color:#6b7280;white-space:nowrap">${formatDate(d.deduction_date)}</td>
+      <td colspan="2" style="color:#dc2626;font-size:12px">${escHtml(d.note || 'Aftrek')}</td>
+      <td></td>
+      <td class="amount-cell aftrek">−${formatEur(d.amount)}</td>
+    </tr>`;
+  });
+
+  const totaal = reviewSubtotaal - aftrekTotaal;
+
+  return `
+  <div class="employee-card" id="emp-card-${emp.id}">
+    <div class="employee-card-header" onclick="toggleCard('${emp.id}')">
+      <div class="employee-name">
+        <span>${escHtml(emp.name)}</span>
+        ${positiefCount > 0 ? `<span style="font-size:12px;font-weight:500;color:#6b7280">${positiefCount} positieve review${positiefCount !== 1 ? 's' : ''}</span>` : ''}
+        ${heeftDrempel ? `<span style="font-size:11px;background:#dcfce7;color:#15803d;border-radius:4px;padding:2px 7px;font-weight:600">drempel gehaald ✓</span>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div class="provisie-total">${formatEur(totaal)}</div>
+        <span class="collapse-icon">▼</span>
+      </div>
+    </div>
+    <div class="employee-card-body">
+      ${emp.reviews.length === 0 && emp.deductions.length === 0 ? '<div class="no-reviews">Geen reviews in deze periode</div>' : `
+      <div class="table-wrap">
+        <table class="provisie-table">
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Klant</th>
+              <th>Portal</th>
+              <th>Beoordeling</th>
+              <th>Provisie</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${reviewRows}
+            ${tabelVoetnoot}
+            ${aftrekRows}
+          </tbody>
+        </table>
+      </div>`}
+      <div class="employee-footer">
+        <button class="add-aftrek-btn" onclick="openAftrekModal('${emp.id}', '${escHtml(emp.name)}')">− Aftrek toevoegen</button>
+        <div class="totaal-row">
+          ${emp.deductions.length > 0 ? `<span>Reviews: <span>${formatEur(reviewSubtotaal)}</span></span>
+          <span>Aftrek: <span style="color:#dc2626">−${formatEur(aftrekTotaal)}</span></span>` : ''}
+          <span style="font-size:15px">Totaal: <span style="color:var(--orange);font-size:16px">${formatEur(totaal)}</span></span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// Toggle kaart in/uitklappen
+// ============================================================
+function toggleCard(empId) {
+  const card = document.getElementById('emp-card-' + empId);
+  if (card) card.classList.toggle('collapsed');
+}
+
+// ============================================================
+// Aftrek modal
+// ============================================================
+function openAftrekModal(employeeId, employeeName) {
+  currentAftrekEmployeeId = employeeId;
+  document.getElementById('aftrekEmployeeName').value = employeeName;
+  document.getElementById('aftrekBedrag').value = '';
+  document.getElementById('aftrekNote').value = '';
+  const toYMD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  document.getElementById('aftrekDatum').value = toYMD(new Date());
+  document.getElementById('aftrekModal').classList.remove('hidden');
+}
+
+function closeAftrekModal() {
+  document.getElementById('aftrekModal').classList.add('hidden');
+  currentAftrekEmployeeId = null;
+}
+
+async function saveAftrek() {
+  const bedrag = parseFloat(document.getElementById('aftrekBedrag').value);
+  const datum  = document.getElementById('aftrekDatum').value;
+  const note   = document.getElementById('aftrekNote').value.trim();
+
+  if (!bedrag || bedrag <= 0) { showToast('Voer een geldig bedrag in', 'error'); return; }
+  if (!datum) { showToast('Voer een datum in', 'error'); return; }
+
+  const { error } = await getSupabase().from('provisie_deductions').insert({
+    organization_id: profile.organization_id,
+    employee_id:     currentAftrekEmployeeId,
+    amount:          bedrag,
+    note:            note || null,
+    deduction_date:  datum,
+    created_by:      (await getSupabase().auth.getUser()).data.user?.id,
+  });
+
+  if (error) { showToast('Fout: ' + error.message, 'error'); return; }
+  showToast('Aftrek opgeslagen');
+  closeAftrekModal();
+  await herbereken();
+}
+
+// ============================================================
+// Hulpfuncties
+// ============================================================
+function formatEur(amount) {
+  return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(amount || 0);
+}
+</script>
+</body>
+</html>

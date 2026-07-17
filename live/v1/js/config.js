@@ -172,12 +172,17 @@ function getStatusBadge(status) {
 // ============================================================
 // Navigation renderer
 // ============================================================
-function renderNav(activePage) {
+function renderNav(activePage, profile) {
   const pages = [
-    { id: 'reviews', label: 'Reviews', icon: '⭐', href: '/reviews' },
-    { id: 'dashboard', label: 'Dashboard', icon: '📊', href: '/dashboard' },
-    { id: 'employees', label: 'Medewerkers', icon: '👤', href: '/employees' },
+    { id: 'reviews',   label: 'Reviews',    icon: '⭐', href: '/reviews' },
+    { id: 'dashboard', label: 'Dashboard',  icon: '📊', href: '/dashboard' },
+    { id: 'employees', label: 'Medewerkers',icon: '👤', href: '/employees' },
   ];
+
+  // Provisie alleen zichtbaar voor admin en systeembeheerder
+  if (isAdmin(profile)) {
+    pages.push({ id: 'provisie', label: 'Provisie', icon: '💶', href: '/provisie' });
+  }
 
   const navItems = pages.map(p => `
     <a href="${p.href}" class="nav-item ${activePage === p.id ? 'active' : ''}">
