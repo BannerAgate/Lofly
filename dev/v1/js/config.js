@@ -24,13 +24,17 @@ function getSupabase() {
 // Auth helpers
 // ============================================================
 async function getCurrentUser() {
-  // Retry getSession tot 5x met 500ms tussenpauze (vangt cold-start op dev op)
-  for (let i = 0; i < 5; i++) {
-    const { data: { session } } = await getSupabase().auth.getSession();
-    if (session?.user) return session.user;
-    await new Promise(r => setTimeout(r, 500));
-  }
-  return null;
+  // Stap 1: lees direct uit localStorage — instant, geen netwerk, geen hang
+  try {
+    const raw = localStorage.getItem('sb-abvxyvtglpjslqrocmwe-auth-token');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.user?.id) return parsed.user;
+    }
+  } catch (_) {}
+  // Stap 2: fallback via Supabase client
+  const { data: { session } } = await getSupabase().auth.getSession();
+  return session?.user ?? null;
 }
 
 async function getCurrentProfile() {
