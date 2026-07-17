@@ -65,7 +65,7 @@
 
     .employee-fn {
       font-size: 14px;
-      color: rgba(255,255,255,.5);
+      color: rgba(255,255,255,.85);
       margin-bottom: 28px;
     }
 
@@ -144,8 +144,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-const SUPABASE_URL = 'https://abvxyvtglpjslqrocmwe.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFidnh5dnRnbHBqc2xxcm9jbXdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNzA5MjksImV4cCI6MjA5Nzk0NjkyOX0._9_FXRM7w7Z6qxOiBFmAMHWtAZDclZIobBBtrmMBgP8';
+const SUPABASE_URL = 'https://tcxwwnbsihmxwbfckeje.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjeHd3bmJzaWhteHdiZmNrZWplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MzA4NDksImV4cCI6MjA5ODMwNjg0OX0.-Q6slj8fyyMBvV0OUUmgS8C2rurCKQIuEa3uBLEyS0Q';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const params = new URLSearchParams(location.search);
@@ -182,8 +182,8 @@ function renderPage(employeeName, orgName) {
   card.innerHTML = `
     <div class="logo-mark"></div>
     <div class="company-name">${escHtml(orgName || '')}</div>
-    <div class="employee-name">${escHtml(employeeName || '')}</div>
-    <div class="employee-fn">Bedankt voor je bezoek!</div>
+    <div class="employee-name">${escHtml((employeeName || '').split(' ')[0])}</div>
+    <div class="employee-fn">bedankt jou voor jouw bezoek!</div>
     <div class="stars">
       <span class="star">★</span>
       <span class="star">★</span>
@@ -191,7 +191,7 @@ function renderPage(employeeName, orgName) {
       <span class="star">★</span>
       <span class="star">★</span>
     </div>
-    <p class="cta-text">Was je tevreden? Help ons door een review achter te laten.</p>
+    <p class="cta-text"><strong>Tevreden over je ervaring bij Auto Smeeing?</strong><br>Vertel in je review gerust iets over het contact met ${escHtml((employeeName || '').split(' ')[0])}, de proefrit, het aankoopproces of de aflevering van je auto. Zo help je andere klanten bij het maken van de juiste keuze.</p>
     <a class="btn-review" href="#" id="reviewBtn" onclick="handleClick(event)">
       Schrijf een review ↗
     </a>
@@ -214,15 +214,4 @@ async function handleClick(e) {
 function showError(msg) {
   card.innerHTML = `
     <div class="logo-mark"></div>
-    <div class="error-state">${escHtml(msg)}<br><br>Neem contact op met de vestiging.</div>
-  `;
-}
-
-function escHtml(str) {
-  const d = document.createElement('div');
-  d.appendChild(document.createTextNode(str));
-  return d.innerHTML;
-}
-</script>
-</body>
-</html>
+    <div class="error-sta

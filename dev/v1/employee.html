@@ -184,7 +184,7 @@ async function loadEmployee() {
   document.getElementById('empAvatar').textContent = emp.name.charAt(0).toUpperCase();
 
   // QR — always use the canonical production URL so the QR works everywhere
-  const qrUrl = `https://lofly-dev.pages.dev/dev/v1/redirect.html?qr=${emp.qr_code_id}`;
+  const qrUrl = `https://loflyapp.com/redirect.html?qr=${emp.qr_code_id}`;
   document.getElementById('qrCodeId').textContent = emp.qr_code_id.substring(0, 12) + '...';
   try {
     const qrContainer = document.getElementById('qrCanvas');
@@ -286,6 +286,28 @@ function renderScansChart() {
   });
 }
 
+function renderStarsChart() {
+  const counts = [1,2,3,4,5].map(s => empReviews.filter(r => Math.round(parseFloat(r.star_rating)) === s).length);
+  new Chart(document.getElementById('chartStars').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: ['1★','2★','3★','4★','5★'],
+      datasets: [{
+        label: 'Reviews',
+        data: counts,
+        backgroundColor: ['#fee2e2','#fecaca','#fde68a','#bbf7d0','#6ee7b7'],
+        borderWidth: 0,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+}
+
 function getQrUrl() {
   if (!emp) return null;
   return `https://loflyapp.com/redirect.html?qr=${emp.qr_code_id}`;
@@ -311,28 +333,6 @@ async function copyQRUrl() {
   }
 }
 
-function renderStarsChart() {
-  const counts = [1,2,3,4,5].map(s => empReviews.filter(r => r.star_rating === s).length);
-  new Chart(document.getElementById('chartStars').getContext('2d'), {
-    type: 'bar',
-    data: {
-      labels: ['1★','2★','3★','4★','5★'],
-      datasets: [{
-        label: 'Reviews',
-        data: counts,
-        backgroundColor: ['#fee2e2','#fecaca','#fde68a','#bbf7d0','#6ee7b7'],
-        borderWidth: 0,
-        borderRadius: 4,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
-    }
-  });
-}
-
 function renderReviewsTable() {
   const tbody = document.getElementById('reviewsBody');
   if (!empReviews.length) {
@@ -347,6 +347,4 @@ function renderReviewsTable() {
     <td>${getStatusBadge(r.status)}</td>
   </tr>`).join('');
 }
-</script>
-</body>
-</html>
+</s

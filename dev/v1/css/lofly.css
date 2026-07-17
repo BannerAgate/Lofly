@@ -3,6 +3,8 @@
    Colors: Navy #1a2335 | Orange #F97316 | White #ffffff
    ============================================================ */
 
+.hidden { display: none !important; }
+
 :root {
   --navy: #1a2335;
   --navy-light: #243045;
@@ -471,6 +473,9 @@ textarea.form-control { resize: vertical; min-height: 100px; }
 .star { font-size: 16px; }
 .star-filled { color: #f59e0b; }
 .star-empty { color: var(--gray-300); }
+.star-half { position: relative; display: inline-block; font-size: 16px; }
+.star-half-bg { color: var(--gray-300); }
+.star-half-fg { position: absolute; left: 0; top: 0; width: 50%; overflow: hidden; color: #f59e0b; }
 
 .star-lg { font-size: 22px; }
 
@@ -713,8 +718,8 @@ textarea.form-control { resize: vertical; min-height: 100px; }
   font-size: 13.5px;
   color: var(--text-primary);
   line-height: 1.6;
-  min-height: 90px;
-  max-height: 180px;
+  min-height: 100px;
+  max-height: 400px;
   overflow-y: auto;
 }
 
@@ -735,28 +740,4 @@ textarea.form-control { resize: vertical; min-height: 100px; }
    Misc utilities
    ============================================================ */
 .text-muted { color: var(--text-muted); }
-.text-secondary { color: var(--text-secondary); }
-.font-semibold { font-weight: 600; }
-.font-bold { font-weight: 700; }
-.flex { display: flex; }
-.items-center { align-items: center; }
-.gap-2 { gap: 8px; }
-.gap-3 { gap: 12px; }
-.mt-1 { margin-top: 4px; }
-.mt-2 { margin-top: 8px; }
-.mt-4 { margin-top: 16px; }
-.mb-4 { margin-bottom: 16px; }
-.truncate { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 220px; }
-.hidden { display: none !important; }
-.w-full { width: 100%; }
-
-/* ============================================================
-   Responsive
-   ============================================================ */
-@media (max-width: 768px) {
-  .sidebar { width: 60px; }
-  .nav-label, .logo-text { display: none; }
-  .main-content { padding: 16px; }
-  .review-expand-inner { grid-template-columns: 1fr; }
-  .stats-grid { grid-template-columns: 1fr 1fr; }
-}
+.text-secondary { color: var(--text-se

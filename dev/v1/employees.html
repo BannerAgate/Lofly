@@ -6,6 +6,9 @@
   <title>Lofly — Medewerkers</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="css/lofly.css">
+  <style>
+    .date-filter-label { font-size:12px;font-weight:600;color:#6b7280;display:block;margin-bottom:3px; }
+  </style>
 </head>
 <body>
 
@@ -19,6 +22,19 @@
         <p class="page-subtitle" id="orgName"></p>
       </div>
       <button class="btn btn-primary" onclick="openAddModal()">+ Medewerker toevoegen</button>
+    </div>
+
+    <!-- Datumfilter -->
+    <div style="display:flex;gap:10px;margin-bottom:16px;align-items:flex-end;flex-wrap:wrap">
+      <div>
+        <label class="date-filter-label" for="dateFrom">Van</label>
+        <input type="date" class="form-control" id="dateFrom" style="width:150px" onchange="applyFilters()">
+      </div>
+      <div>
+        <label class="date-filter-label" for="dateTo">Tot en met</label>
+        <input type="date" class="form-control" id="dateTo" style="width:150px" onchange="applyFilters()">
+      </div>
+      <button class="btn btn-secondary" onclick="clearDateFilter()">Wis filter</button>
     </div>
 
     <div class="card" style="padding:0;overflow:hidden">
@@ -102,6 +118,7 @@ let deletingId = null;
   document.getElementById('orgName').textContent = profile.organizations?.name || '';
   document.getElementById('appLayout').style.display = 'flex';
   document.getElementById('sidebarContainer').innerHTML = renderNav('employees');
+  // Verberg beheer-knoppen voor reviewer en readonly
   if (!isAdmin(profile)) {
     const addBtn = document.querySelector('[onclick="openAddModal()"]');
     if (addBtn) addBtn.style.display = 'none';
@@ -112,18 +129,47 @@ let deletingId = null;
 async function loadData() {
   const [empRes, revRes, scanRes] = await Promise.all([
     getSupabase().from('employees').select('*').order('name'),
-    getSupabase().from('reviews').select('id, employee_id, star_rating'),
-    getSupabase().from('qr_scans').select('id, employee_id, button_clicked')
+    getSupabase().from('reviews').select('id, employee_id, star_rating, review_date'),
+    getSupabase().from('qr_scans').select('id, employee_id, button_clicked, created_at')
   ]);
 
   employees = empRes.data || [];
   reviews = revRes.data || [];
   scans = scanRes.data || [];
 
-  renderEmployees();
+  applyFilters();
 }
 
-function renderEmployees() {
+function applyFilters() {
+  const dateFrom = document.getElementById('dateFrom').value;
+  const dateTo = document.getElementById('dateTo').value;
+
+  const filteredScans = scans.filter(s => {
+    const d = s.created_at ? s.created_at.slice(0, 10) : null;
+    if (!d) return true;
+    if (dateFrom && d < dateFrom) return false;
+    if (dateTo && d > dateTo) return false;
+    return true;
+  });
+
+  const filteredReviews = reviews.filter(r => {
+    const d = r.review_date ? r.review_date.slice(0, 10) : null;
+    if (!d) return true;
+    if (dateFrom && d < dateFrom) return false;
+    if (dateTo && d > dateTo) return false;
+    return true;
+  });
+
+  renderEmployees(filteredScans, filteredReviews);
+}
+
+function clearDateFilter() {
+  document.getElementById('dateFrom').value = '';
+  document.getElementById('dateTo').value = '';
+  applyFilters();
+}
+
+function renderEmployees(filteredScans = scans, filteredReviews = reviews) {
   const tbody = document.getElementById('employeesBody');
   if (!employees.length) {
     tbody.innerHTML = `
@@ -138,13 +184,13 @@ function renderEmployees() {
   }
 
   tbody.innerHTML = employees.map(emp => {
-    const empScans = scans.filter(s => s.employee_id === emp.id);
+    const empScans = filteredScans.filter(s => s.employee_id === emp.id);
     const empClicks = empScans.filter(s => s.button_clicked).length;
-    const empRevs = reviews.filter(r => r.employee_id === emp.id);
+    const empRevs = filteredReviews.filter(r => r.employee_id === emp.id);
     const empAvg = empRevs.length
       ? (empRevs.reduce((a, r) => a + r.star_rating, 0) / empRevs.length).toFixed(1)
       : '—';
-    const qrUrl = `https://lofly-dev.pages.dev/dev/v1/redirect.html?qr=${emp.qr_code_id}`;
+    const qrUrl = `https://loflyapp.com/redirect.html?qr=${emp.qr_code_id}`;
 
     return `
       <tr>

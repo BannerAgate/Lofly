@@ -169,9 +169,10 @@ let org = null;
   if (!user) return;
   profile = await getCurrentProfile();
   if (!profile) { signOut(); return; }
+  // Reviewer en readonly hebben geen toegang tot instellingen
   if (!isAdmin(profile)) {
     showToast('Je hebt geen toegang tot instellingen', 'error');
-    setTimeout(() => location.href = 'reviews.html', 2000);
+    setTimeout(() => location.href = '/reviews', 2000);
     return;
   }
   org = profile.organizations;
@@ -187,6 +188,8 @@ let org = null;
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
     const usersBtn = document.querySelector('[onclick*="tabUsers"]');
     if (usersBtn) { usersBtn.classList.add('active'); document.getElementById('tabUsers').classList.remove('hidden'); }
+    // Admin mag geen admin/systeembeheerder uitnodigen
+    document.querySelectorAll('#inviteRole option[value="admin"], #inviteRole option[value="systeembeheerder"]').forEach(o => o.remove());
   }
 
   populateFields();
@@ -253,6 +256,35 @@ async function saveOrgUpdate(updates) {
 // ============================================================
 // Users
 // ============================================================
+const ROLE_LABELS = { systeembeheerder: 'Systeembeheerder', admin: 'Admin', reviewer: 'Reviewer', readonly: 'Readonly' };
+
+function renderRoleCell(u) {
+  // Eigen profiel: altijd disabled
+  if (u.id === profile.id) {
+    return `<select class="form-control" style="width:140px" disabled>
+      <option value="${u.role}" selected>${ROLE_LABELS[u.role] || u.role}</option>
+    </select>`;
+  }
+  // Systeembeheerder: volledige dropdown
+  if (isSysteembeheerder(profile)) {
+    return `<select class="form-control" style="width:140px" onchange="updateRole('${u.id}', this.value)">
+      <option value="systeembeheerder" ${u.role==='systeembeheerder'?'selected':''}>Systeembeheerder</option>
+      <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+      <option value="reviewer" ${u.role==='reviewer'?'selected':''}>Reviewer</option>
+      <option value="readonly" ${u.role==='readonly'?'selected':''}>Readonly</option>
+    </select>`;
+  }
+  // Admin: admin/systeembeheerder collega's zijn niet aanpasbaar
+  if (u.role === 'admin' || u.role === 'systeembeheerder') {
+    return `<span style="color:#6b7280;font-size:13px">${ROLE_LABELS[u.role]}</span>`;
+  }
+  // Admin: reviewer/readonly collega's → beperkte dropdown
+  return `<select class="form-control" style="width:140px" onchange="updateRole('${u.id}', this.value)">
+    <option value="reviewer" ${u.role==='reviewer'?'selected':''}>Reviewer</option>
+    <option value="readonly" ${u.role==='readonly'?'selected':''}>Readonly</option>
+  </select>`;
+}
+
 async function loadUsers() {
   const { data } = await getSupabase()
     .from('profiles')
@@ -274,14 +306,7 @@ async function loadUsers() {
         </div>
       </td>
       <td style="color:#6b7280">${escHtml(u.email || '—')}</td>
-      <td>
-        <select class="form-control" style="width:140px" onchange="updateRole('${u.id}', this.value)" ${u.id === profile.id ? 'disabled' : ''}>
-          <option value="systeembeheerder" ${u.role==='systeembeheerder'?'selected':''}>Systeembeheerder</option>
-          <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
-          <option value="reviewer" ${u.role==='reviewer'?'selected':''}>Reviewer</option>
-          <option value="readonly" ${u.role==='readonly'?'selected':''}>Readonly</option>
-        </select>
-      </td>
+      <td>${renderRoleCell(u)}</td>
       <td>
         ${u.id !== profile.id ? `<button class="btn btn-danger btn-sm" onclick="removeUser('${u.id}')">Verwijderen</button>` : '<span style="color:#9ca3af;font-size:12px">Jij</span>'}
       </td>
@@ -306,8 +331,21 @@ async function updateRole(userId, role) {
 
 async function removeUser(userId) {
   if (!confirm('Weet je zeker dat je deze gebruiker wilt verwijderen?')) return;
-  const { error } = await getSupabase().from('profiles').delete().eq('id', userId);
-  if (error) { showToast('Fout: ' + error.message, 'error'); return; }
+  const { data: { session } } = await getSupabase().auth.getSession();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/delete-user`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ target_user_id: userId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    showToast('Fout: ' + (err.error || res.status), 'error');
+    return;
+  }
   showToast('Gebruiker verwijderd');
   loadUsers();
 }
@@ -346,16 +384,43 @@ async function sendInvite() {
   if (!name) { showToast('Voer een naam in', 'error'); return; }
   if (!email) { showToast('Voer een e-mailadres in', 'error'); return; }
 
-  const { error } = await getSupabase()
+  const { data: inv, error } = await getSupabase()
     .from('invitations')
     .insert({
       organization_id: profile.organization_id,
       email, role, name,
       invited_by: profile.id
-    });
+    })
+    .select('id')
+    .single();
 
   if (error) { showToast('Fout: ' + error.message, 'error'); return; }
-  showToast('Uitnodiging aangemaakt');
+
+  // Stuur uitnodigingsmail via Edge Function
+  try {
+    const { data: { session } } = await getSupabase().auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/send-invite`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ invitation_id: inv.id }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      showToast('Uitnodiging opgeslagen, maar mail mislukt: ' + (err.error || res.status), 'error');
+      loadInvitations();
+      return;
+    }
+  } catch (e) {
+    showToast('Uitnodiging opgeslagen, maar mail mislukt: ' + e.message, 'error');
+    loadInvitations();
+    return;
+  }
+
+  showToast('Uitnodiging verstuurd');
   document.getElementById('inviteName').value = '';
   document.getElementById('inviteEmail').value = '';
   loadInvitations();
