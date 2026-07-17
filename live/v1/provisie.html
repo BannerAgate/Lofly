@@ -537,7 +537,6 @@ function renderEmployeeCard(emp) {
       reviewSubtotaal += raw;
       const rawBasis = basis / r.splitFactor;
       if (heeftDrempel && basis !== drempel) {
-        extraBadge = `<span class="terugrekening-badge">↑ omgerekend</span>`;
         bedragLabel = `+${formatEur(raw)}`;
       } else {
         bedragLabel = `+${formatEur(raw)}`;
