@@ -12,18 +12,10 @@ const APP_VERSION = '1.0.0';
 
 // Initialize Supabase client (loaded from CDN in each HTML file)
 let _supabase = null;
-let _sessionReady = null;
 
 function getSupabase() {
   if (!_supabase) {
     _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    _sessionReady = new Promise(resolve => {
-      _supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'INITIAL_SESSION') {
-          resolve(session?.user ?? null);
-        }
-      });
-    });
   }
   return _supabase;
 }
@@ -32,8 +24,13 @@ function getSupabase() {
 // Auth helpers
 // ============================================================
 async function getCurrentUser() {
-  getSupabase();
-  return await _sessionReady;
+  // Retry getSession tot 5x met 500ms tussenpauze (vangt cold-start op dev op)
+  for (let i = 0; i < 5; i++) {
+    const { data: { session } } = await getSupabase().auth.getSession();
+    if (session?.user) return session.user;
+    await new Promise(r => setTimeout(r, 500));
+  }
+  return null;
 }
 
 async function getCurrentProfile() {
