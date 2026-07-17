@@ -358,6 +358,21 @@ async function saveSettings() {
 }
 
 // ============================================================
+// Lees huidige UI-staat (ook zonder opslaan)
+// ============================================================
+function getUISettings() {
+  const portals = [];
+  if (document.getElementById('portalGoogle').checked) portals.push('google');
+  if (document.getElementById('portalKV').checked) portals.push('klantenvertellen');
+  return {
+    portals: portals.length ? portals : ['google'],
+    bedrag_basis:   parseFloat(document.getElementById('setBedragBasis').value)  || settings.bedrag_basis  || 15,
+    bedrag_drempel: parseFloat(document.getElementById('setBedragDrempel').value) || settings.bedrag_drempel || 25,
+    drempel_count:  parseInt(document.getElementById('setDrempel').value)          || settings.drempel_count  || 5,
+  };
+}
+
+// ============================================================
 // Data laden & berekenen
 // ============================================================
 async function herbereken() {
@@ -366,12 +381,16 @@ async function herbereken() {
   const container = document.getElementById('provisieContainer');
   container.innerHTML = '<div class="no-reviews">Berekenen...</div>';
 
+  // Gebruik altijd de huidige UI-waarden (checkbox staat, bedragen)
+  const uiSettings = getUISettings();
+  settings = { ...settings, ...uiSettings };
+
   // Reviews ophalen (geplaatst + geselecteerde portals + datumbereik)
   let q = getSupabase()
     .from('reviews')
     .select('id, reviewer_name, review_date, star_rating, source, status, employee_id, second_employee_id, employees!employee_id(name), second_employee:employees!second_employee_id(name)')
     .eq('status', 'posted')
-    .in('source', settings.portals.length ? settings.portals : ['google']);
+    .in('source', settings.portals);
 
   if (dateFrom) q = q.gte('review_date', dateFrom);
   if (dateTo)   q = q.lte('review_date', dateTo + 'T23:59:59');
