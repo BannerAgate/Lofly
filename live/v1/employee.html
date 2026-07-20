@@ -404,42 +404,37 @@ function renderProvisieSection(dateFrom, dateTo) {
     if (dateFrom && d < dateFrom) return false;
     if (dateTo   && d > dateTo)   return false;
     return true;
-  }).sort((a, b) => a.review_date > b.review_date ? 1 : -1);
+  });
 
   const positief = inPeriod.filter(r => r.star_rating >= 4);
   const positiefCount = positief.length;
   const heeftDrempel = positiefCount >= drempelN;
   const bedragPerStuk = heeftDrempel ? drempel : basis;
 
+  // Groepeer per portal
+  const portalTotalen = {};
   let reviewSubtotaal = 0;
-  const reviewRows = inPeriod.map(r => {
-    const isPos = r.star_rating >= 4;
-    const isNeu = Math.round(r.star_rating) === 3;
-    let bedragLabel = '—';
-    if (isPos) {
-      const raw = bedragPerStuk / r.splitFactor;
-      reviewSubtotaal += raw;
-      bedragLabel = `<span style="color:#16a34a;font-weight:600">+${formatEur(raw)}</span>`;
-    } else if (isNeu) {
-      bedragLabel = '<span style="color:#9ca3af">neutraal</span>';
-    } else {
-      bedragLabel = '<span style="color:#9ca3af">—</span>';
-    }
-    const splitLabel = r.splitFactor > 1 ? `<span style="font-size:11px;color:#9ca3af;margin-left:4px">(÷2)</span>` : '';
-    return `<tr>
-      <td style="color:#6b7280;white-space:nowrap">${formatDate(r.review_date)}</td>
-      <td>${escHtml(r.reviewer_name || 'Anoniem')}</td>
-      <td>${getSourceBadge(r.source)}</td>
-      <td>${renderStars(r.star_rating)}</td>
-      <td>${bedragLabel}${splitLabel}</td>
-    </tr>`;
-  }).join('');
+  positief.forEach(r => {
+    const portal = r.source || 'onbekend';
+    const raw = bedragPerStuk / r.splitFactor;
+    if (!portalTotalen[portal]) portalTotalen[portal] = { count: 0, totaal: 0 };
+    portalTotalen[portal].count += 1;
+    portalTotalen[portal].totaal += raw;
+    reviewSubtotaal += raw;
+  });
+
+  const portalRows = Object.entries(portalTotalen).map(([portal, data]) => `
+    <tr>
+      <td>${getSourceBadge(portal)}</td>
+      <td style="color:#6b7280">${data.count} review${data.count !== 1 ? 's' : ''}</td>
+      <td><span style="color:#16a34a;font-weight:600">+${formatEur(data.totaal)}</span></td>
+    </tr>`).join('');
 
   // Terugrekening rij
   let tabelVoetnoot = '';
   if (heeftDrempel && basis !== drempel) {
     tabelVoetnoot = `<tr style="background:#f0fdf4">
-      <td colspan="4" style="color:#15803d;font-size:12px;font-weight:600;padding:8px 16px">
+      <td colspan="2" style="color:#15803d;font-size:12px;font-weight:600;padding:8px 16px">
         ↑ Drempel van ${drempelN} positieve reviews gehaald — terugwerking toegepast
       </td>
       <td style="color:#15803d;font-weight:700;padding:8px 16px">+${formatEur((drempel - basis) * positiefCount)}</td>
@@ -456,15 +451,13 @@ function renderProvisieSection(dateFrom, dateTo) {
   const aftrekRows = dedInPeriod.map(d => {
     aftrekTotaal += d.amount;
     return `<tr style="background:#fef2f2">
-      <td style="color:#6b7280;white-space:nowrap">${formatDate(d.deduction_date)}</td>
-      <td colspan="2" style="color:#dc2626;font-size:12px">${escHtml(d.note || 'Aftrek')}</td>
-      <td></td>
+      <td colspan="2" style="color:#dc2626;font-size:12px">${escHtml(d.note || 'Aftrek')} <span style="color:#9ca3af;font-size:11px">(${formatDate(d.deduction_date)})</span></td>
       <td style="color:#dc2626;font-weight:600">−${formatEur(d.amount)}</td>
     </tr>`;
   }).join('');
 
   const totaal = reviewSubtotaal - aftrekTotaal;
-  const noData = inPeriod.length === 0 && dedInPeriod.length === 0;
+  const noData = positiefCount === 0 && dedInPeriod.length === 0;
 
   const el = document.getElementById('provisieSection');
   el.style.display = 'block';
@@ -479,11 +472,11 @@ function renderProvisieSection(dateFrom, dateTo) {
         <table>
           <thead>
             <tr>
-              <th>Datum</th><th>Klant</th><th>Portal</th><th>Beoordeling</th><th>Provisie</th>
+              <th>Portal</th><th>Reviews</th><th>Provisie</th>
             </tr>
           </thead>
           <tbody>
-            ${reviewRows}
+            ${portalRows}
             ${tabelVoetnoot}
             ${aftrekRows}
           </tbody>
