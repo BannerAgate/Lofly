@@ -130,7 +130,7 @@ async function loadData() {
   const [empRes, revRes, scanRes] = await Promise.all([
     getSupabase().from('employees').select('*').order('name'),
     getSupabase().from('reviews').select('id, employee_id, star_rating, review_date'),
-    getSupabase().from('qr_scans').select('id, employee_id, button_clicked, created_at')
+    getSupabase().from('qr_scans').select('id, employee_id, button_clicked, scanned_at')
   ]);
 
   employees = empRes.data || [];
@@ -145,7 +145,7 @@ function applyFilters() {
   const dateTo = document.getElementById('dateTo').value;
 
   const filteredScans = scans.filter(s => {
-    const d = s.created_at ? s.created_at.slice(0, 10) : null;
+    const d = s.scanned_at ? s.scanned_at.slice(0, 10) : null;
     if (!d) return true;
     if (dateFrom && d < dateFrom) return false;
     if (dateTo && d > dateTo) return false;
