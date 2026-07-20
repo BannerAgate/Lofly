@@ -397,9 +397,11 @@ function renderProvisieSection(dateFrom, dateTo) {
     ...allSecondReviews.map(r => ({ ...r, splitFactor: 2 })),
   ];
 
-  // Filter: geplaatst + datumbereik
+  // Filter: geplaatst + datumbereik + geselecteerde portals
+  const activePortals = s.portals || ['google', 'klantenvertellen'];
   const inPeriod = allCombined.filter(r => {
     if (r.status !== 'posted') return false;
+    if (!activePortals.includes(r.source)) return false;
     const d = (r.review_date || '').substring(0, 10);
     if (dateFrom && d < dateFrom) return false;
     if (dateTo   && d > dateTo)   return false;
