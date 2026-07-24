@@ -117,6 +117,13 @@ function showToast(message, type = 'success') {
   setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3500);
 }
 
+function stripGoogleTranslation(text) {
+  if (!text) return text;
+  const idx = text.indexOf('(Translated by Google)');
+  if (idx !== -1) return text.substring(0, idx).trim();
+  return text;
+}
+
 function escHtml(str) {
   return String(str ?? '')
     .replace(/&/g, '&amp;')

@@ -362,7 +362,7 @@ function renderReviewsTable() {
     return;
   }
   tbody.innerHTML = empReviews.map(r => {
-    const hasText = !!(r.review_text || '').trim();
+    const hasText = !!(stripGoogleTranslation(r.review_text) || '').trim();
     const rowId = `rev-expand-${r.id}`;
     return `
     <tr style="cursor:${hasText ? 'pointer' : 'default'}" onclick="${hasText ? `toggleReviewRow('${rowId}')` : ''}">
@@ -374,7 +374,7 @@ function renderReviewsTable() {
     </tr>
     ${hasText ? `<tr id="${rowId}" style="display:none;background:#f8fafc">
       <td colspan="5" style="padding:12px 16px 16px;font-size:13px;color:#374151;line-height:1.6;border-top:none">
-        <div style="border-left:3px solid var(--orange);padding-left:12px;font-style:italic">${escHtml(r.review_text)}</div>
+        <div style="border-left:3px solid var(--orange);padding-left:12px;font-style:italic">${escHtml(stripGoogleTranslation(r.review_text))}</div>
       </td>
     </tr>` : ''}`;
   }).join('');

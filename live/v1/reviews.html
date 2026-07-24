@@ -330,7 +330,7 @@ function renderTable(reviews) {
       <td style="color:#6b7280;white-space:nowrap">${formatDate(r.review_date)}</td>
       <td>
         <div class="font-semibold">${escHtml(r.reviewer_name || 'Anoniem')}</div>
-        ${r.review_text ? `<div class="text-muted truncate" style="font-size:12px">${escHtml(r.review_text.substring(0,60))}${r.review_text.length>60?'…':''}</div>` : ''}
+        ${r.review_text ? `<div class="text-muted truncate" style="font-size:12px">${escHtml(stripGoogleTranslation(r.review_text).substring(0,60))}${stripGoogleTranslation(r.review_text).length>60?'…':''}</div>` : ''}
       </td>
       <td>${getSourceBadge(r.source)}</td>
       <td>${renderStars(r.star_rating)}</td>
@@ -354,7 +354,7 @@ function openModal(reviewId) {
   document.getElementById('modalReviewerName').textContent = r.reviewer_name || 'Anonieme reviewer';
   document.getElementById('modalMeta').innerHTML =
     `${getSourceBadge(r.source)} ${renderStars(r.star_rating)} <span style="margin-left:8px">${formatDate(r.review_date)}</span>`;
-  document.getElementById('modalReviewText').textContent = r.review_text || '(Geen tekst)';
+  document.getElementById('modalReviewText').textContent = stripGoogleTranslation(r.review_text) || '(Geen tekst)';
   document.getElementById('modalAIResponse').textContent = r.ai_response || '(Nog geen AI-suggestie gegenereerd)';
   document.getElementById('modalFinalResponse').value = r.final_response || r.ai_response || '';
   currentEmployeeId = r.employee_id || null;
@@ -602,7 +602,7 @@ function openOorkonde() {
     empRow.style.display = 'none';
   }
 
-  document.getElementById('oReviewText').textContent = r.review_text || '';
+  document.getElementById('oReviewText').textContent = stripGoogleTranslation(r.review_text) || '';
   const srcMap = { klantenvertellen: 'Klantenvertellen', google: 'Google' };
   document.getElementById('oSourceBadge').textContent = srcMap[r.source] || r.source;
   document.getElementById('oDate').textContent = formatDate(r.review_date);
