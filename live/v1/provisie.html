@@ -190,6 +190,7 @@
       <div style="display:flex;gap:10px;align-items:center">
         <button class="btn btn-secondary btn-sm" id="settingsBtn" onclick="toggleSettings()" style="display:none">⚙️ Instellingen</button>
         <button class="btn btn-secondary btn-sm" onclick="herbereken()">↻ Herbereken</button>
+        <button class="btn btn-primary btn-sm" onclick="openExport()">↓ Exporteren</button>
       </div>
     </div>
 
@@ -288,6 +289,34 @@
     </div>
   </div>
 </div>
+
+<!-- Export modal -->
+<div class="modal-backdrop hidden" id="exportModal">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <div>
+        <h2 class="modal-title">Provisie-overzicht</h2>
+        <div id="exportSubtitle" style="font-size:12px;color:#6b7280;margin-top:2px"></div>
+      </div>
+      <button class="modal-close" onclick="closeExport()">✕</button>
+    </div>
+    <div id="exportBody" style="margin-bottom:16px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeExport()">Sluiten</button>
+      <button class="btn btn-primary" onclick="window.print()">🖨 Afdrukken / PDF</button>
+    </div>
+  </div>
+</div>
+
+<style>
+@media print {
+  body > *:not(#exportModal) { display: none !important; }
+  #exportModal { position: static !important; background: none !important; display: block !important; }
+  #exportModal .modal { box-shadow: none !important; max-width: 100% !important; }
+  .modal-footer { display: none !important; }
+  .modal-close { display: none !important; }
+}
+</style>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script>
@@ -717,6 +746,104 @@ function deleteAftrek(deductionId) {
 
 function closeConfirmModal() {
   document.getElementById('confirmModal').classList.add('hidden');
+}
+
+// ============================================================
+// Export
+// ============================================================
+function openExport() {
+  const dateFrom = document.getElementById('dateFrom').value;
+  const dateTo   = document.getElementById('dateTo').value;
+  const orgName  = profile.organizations?.name || '';
+
+  const basis    = settings.bedrag_basis   ?? 15;
+  const drempel  = settings.bedrag_drempel ?? 25;
+  const drempelN = settings.drempel_count  ?? 5;
+
+  // Bouw per-medewerker totalen
+  const employeeMap = {};
+  allEmployees.forEach(e => {
+    employeeMap[e.id] = { id: e.id, name: e.name, reviews: [], deductions: [] };
+  });
+  allReviews.forEach(r => {
+    const splitFactor = r.second_employee_id ? 2 : 1;
+    if (r.employee_id && employeeMap[r.employee_id]) employeeMap[r.employee_id].reviews.push({ ...r, splitFactor });
+    if (r.second_employee_id && employeeMap[r.second_employee_id]) employeeMap[r.second_employee_id].reviews.push({ ...r, splitFactor });
+  });
+  const filteredDed = allDeductions.filter(d => {
+    if (dateFrom && d.deduction_date < dateFrom) return false;
+    if (dateTo   && d.deduction_date > dateTo)   return false;
+    return true;
+  });
+  filteredDed.forEach(d => {
+    if (employeeMap[d.employee_id]) employeeMap[d.employee_id].deductions.push(d);
+  });
+
+  const actief = Object.values(employeeMap).filter(e => e.reviews.length > 0 || e.deductions.length > 0);
+
+  let totaalBruto = 0, totaalAftrek = 0;
+
+  const rows = actief.map(emp => {
+    const positief = emp.reviews.filter(r => r.star_rating >= 4);
+    const heeftDrempel = positief.length >= drempelN;
+    const bedragPerStuk = heeftDrempel ? drempel : basis;
+
+    let bruto = positief.reduce((sum, r) => sum + bedragPerStuk / r.splitFactor, 0);
+    if (heeftDrempel && basis !== drempel) {
+      // terugrekening zit al verwerkt in bedragPerStuk — geen extra optelling nodig
+    }
+    const aftrek = emp.deductions.reduce((sum, d) => sum + d.amount, 0);
+    const netto  = bruto - aftrek;
+    totaalBruto += bruto;
+    totaalAftrek += aftrek;
+
+    const drempelBadge = heeftDrempel ? `<span style="font-size:11px;background:#dcfce7;color:#15803d;border-radius:3px;padding:1px 5px;margin-left:6px">✓ drempel</span>` : '';
+    return `<tr>
+      <td style="padding:10px 14px;font-weight:600;color:#1a2335">${escHtml(emp.name)}${drempelBadge}</td>
+      <td style="padding:10px 14px;text-align:center;color:#6b7280">${positief.length}</td>
+      <td style="padding:10px 14px;text-align:right;color:#16a34a;font-weight:600">${formatEur(bruto)}</td>
+      <td style="padding:10px 14px;text-align:right;color:${aftrek > 0 ? '#dc2626' : '#9ca3af'}">${aftrek > 0 ? '−' + formatEur(aftrek) : '—'}</td>
+      <td style="padding:10px 14px;text-align:right;font-weight:700;color:var(--orange)">${formatEur(netto)}</td>
+    </tr>`;
+  }).join('');
+
+  const totaalNetto = totaalBruto - totaalAftrek;
+
+  const formatPeriod = d => d ? new Date(d).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
+
+  document.getElementById('exportSubtitle').textContent =
+    `${orgName} · ${formatPeriod(dateFrom)} t/m ${formatPeriod(dateTo)}`;
+
+  document.getElementById('exportBody').innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="border-bottom:2px solid #e5e7eb">
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em">Medewerker</th>
+          <th style="padding:8px 14px;text-align:center;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em">Reviews</th>
+          <th style="padding:8px 14px;text-align:right;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em">Bruto</th>
+          <th style="padding:8px 14px;text-align:right;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em">Aftrek</th>
+          <th style="padding:8px 14px;text-align:right;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em">Netto</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows || '<tr><td colspan="5" style="padding:20px;text-align:center;color:#9ca3af">Geen data in deze periode</td></tr>'}
+      </tbody>
+      <tfoot>
+        <tr style="border-top:2px solid #e5e7eb;background:#f8fafc">
+          <td style="padding:12px 14px;font-weight:700;color:#1a2335">Totaal</td>
+          <td></td>
+          <td style="padding:12px 14px;text-align:right;font-weight:700;color:#16a34a">${formatEur(totaalBruto)}</td>
+          <td style="padding:12px 14px;text-align:right;font-weight:700;color:#dc2626">${totaalAftrek > 0 ? '−' + formatEur(totaalAftrek) : '—'}</td>
+          <td style="padding:12px 14px;text-align:right;font-weight:800;color:var(--orange);font-size:15px">${formatEur(totaalNetto)}</td>
+        </tr>
+      </tfoot>
+    </table>`;
+
+  document.getElementById('exportModal').classList.remove('hidden');
+}
+
+function closeExport() {
+  document.getElementById('exportModal').classList.add('hidden');
 }
 
 // ============================================================
