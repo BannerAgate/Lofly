@@ -198,6 +198,13 @@ function renderNav(activePage, profile) {
     </a>
   `).join('');
 
+  const mobileItems = pages.map(p => `
+    <a href="${p.href}" class="mobile-nav-item ${activePage === p.id ? 'active' : ''}">
+      <span class="mobile-nav-icon">${p.icon}</span>
+      <span class="mobile-nav-label">${p.label}</span>
+    </a>
+  `).join('');
+
   return `
     <nav class="sidebar">
       <div class="sidebar-logo">
@@ -215,6 +222,13 @@ function renderNav(activePage, profile) {
           <span class="nav-label">Uitloggen</span>
         </button>
       </div>
+    </nav>
+    <nav class="mobile-bottom-nav">
+      ${mobileItems}
+      <a href="/settings" class="mobile-nav-item ${activePage === 'settings' ? 'active' : ''}">
+        <span class="mobile-nav-icon">⚙️</span>
+        <span class="mobile-nav-label">Instellingen</span>
+      </a>
     </nav>
   `;
 }
