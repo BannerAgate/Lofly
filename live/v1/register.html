@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lofly — Account aanmaken</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="stylesheet" href="css/lofly.css">
+  <link rel="stylesheet" href="css/lofly.css?v=2">
   <style>
     .pw-rules { list-style:none; margin:6px 0 16px; padding:0; display:flex; flex-direction:column; gap:4px; }
     .pw-rules li { font-size:12px; display:flex; align-items:center; gap:6px; color:#9ca3af; transition:color .15s; }
@@ -55,7 +55,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js"></script>
+<script src="js/config.js?v=2"></script>
 <script>
 const params = new URLSearchParams(window.location.search);
 const invitedEmail = params.get('email') ? decodeURIComponent(params.get('email')) : null;
