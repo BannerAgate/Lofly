@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lofly — Medewerker detail</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="css/lofly.css?v=2">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    .date-filter-label {
+      font-size: 12px; font-weight: 600; color: #6b7280;
+      display: block; margin-bottom: 3px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-layout" id="appLayout" style="display:none">
+  <div id="sidebarContainer"></div>
+
+  <main class="main-content">
+    <!-- Back link -->
+    <a href="employees.html" style="font-size:13px;color:#6b7280;display:inline-flex;align-items:center;gap:4px;margin-bottom:20px">
+      ← Terug naar medewerkers
+    </a>
+
+    <!-- Employee header -->
+    <div class="card" style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="width:56px;height:56px;border-radius:50%;background:#1a2335;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:700" id="empAvatar">?</div>
+          <div>
+            <h1 class="page-title" id="empName">Laden...</h1>
+            <p class="page-subtitle" id="empFunction"></p>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-end">
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary btn-sm" onclick="downloadQR()">⬇ QR downloaden</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyQRUrl()">⎘ QR URL kopiëren</button>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-end">
+            <div>
+              <label class="date-filter-label" for="dateFrom">Van</label>
+              <input type="date" class="form-control" id="dateFrom" style="width:150px" onchange="applyDateFilter()">
+            </div>
+            <div>
+              <label class="date-filter-label" for="dateTo">Tot</label>
+              <input type="date" class="form-control" id="dateTo" style="width:150px" onchange="applyDateFilter()">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="stats-grid" style="margin-bottom:20px">
+      <div class="stat-card accent">
+        <div class="stat-label">QR Scans</div>
+        <div class="stat-value" id="statScans">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">QR Klikken</div>
+        <div class="stat-value" id="statClicks">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Conversie</div>
+        <div class="stat-value" id="statConversion">—</div>
+        <div class="stat-sub">klik / scan</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Gekoppelde reviews</div>
+        <div class="stat-value" id="statReviews">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Gemiddeld ★</div>
+        <div class="stat-value" id="statAvg">—</div>
+      </div>
+    </div>
+
+    <!-- Charts + QR -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 200px;gap:20px;margin-bottom:20px">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Scans per week</span></div>
+        <canvas id="chartScans" height="180"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Sterrenverdeling</span></div>
+        <canvas id="chartStars" height="180"></canvas>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px">
+        <div class="card-title" style="text-align:center">QR Code</div>
+        <div id="qrCanvas" style="width:140px;height:140px"></div>
+        <div style="font-size:11px;color:#9ca3af;text-align:center" id="qrCodeId"></div>
+      </div>
+    </div>
+
+    <!-- Reviews table -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb">
+        <span class="card-title">Gekoppelde reviews</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Klant</th>
+              <th>Portal</th>
+              <th>Beoordeling</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="reviewsBody">
+            <tr><td colspan="5" class="loading-overlay">Laden...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Provisie sectie (alleen admin/systeembeheerder) -->
+    <div id="provisieSection" style="display:none"></div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=2"></script>
+<script>
+let profile = null;
+let emp = null;
+let empScans = [];
+let empReviews = [];
+let allScans = [];
+let allReviews = [];
+let allSecondReviews = [];
+let allDeductions = [];
+let provisieSettings = { portals: ['google','klantenvertellen'], bedrag_basis: 15, bedrag_drempel: 25, drempel_count: 5 };
+let chartScansInstance = null;
+let chartStarsInstance = null;
+
+const params = new URLSearchParams(location.search);
+const empId = params.get('id');
+
+const toYMD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+(async () => {
+  // Set default date range: first of current month → today
+  const now = new Date();
+  const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  document.getElementById('dateFrom').value = toYMD(firstOfMonth);
+  document.getElementById('dateTo').value = toYMD(now);
+
+  if (!empId) { location.href = 'employees.html'; return; }
+  const user = await requireAuth('index.html');
+  if (!user) return;
+  profile = await getCurrentProfile();
+  if (!profile) { signOut(); return; }
+  document.getElementById('appLayout').style.display = 'flex';
+  document.getElementById('sidebarContainer').innerHTML = renderNav('employees', profile);
+  await loadEmployee();
+})();
+
+async function loadEmployee() {
+  const [empRes, revRes, rev2Res, dedRes, orgRes] = await Promise.all([
+    getSupabase().from('employees').select('*').eq('id', empId).single(),
+    getSupabase().from('reviews').select('*').eq('employee_id', empId).order('review_date', { ascending: false }),
+    getSupabase().from('reviews').select('*').eq('second_employee_id', empId).order('review_date', { ascending: false }),
+    getSupabase().from('provisie_deductions').select('*').eq('employee_id', empId),
+    getSupabase().from('organizations').select('provisie_settings').eq('id', profile.organization_id).single(),
+  ]);
+
+  if (empRes.error || !empRes.data) { location.href = 'employees.html'; return; }
+  emp = empRes.data;
+  allReviews = revRes.data || [];
+  allSecondReviews = rev2Res.data || [];
+  allDeductions = dedRes.data || [];
+  if (orgRes.data?.provisie_settings) {
+    provisieSettings = { ...provisieSettings, ...orgRes.data.provisie_settings };
+  }
+
+  // Try to load QR scans — table may not exist yet, so handle gracefully
+  try {
+    const scanRes = await getSupabase()
+      .from('qr_scans')
+      .select('*')
+      .eq('employee_id', empId)
+      .order('scanned_at', { ascending: false });
+    allScans = scanRes.data || [];
+  } catch (e) {
+    allScans = [];
+  }
+
+  // Header
+  document.title = `Lofly — ${emp.name}`;
+  document.getElementById('empName').textContent = emp.name;
+  document.getElementById('empFunction').textContent = emp.function_title || 'Geen functie';
+  document.getElementById('empAvatar').textContent = emp.name.charAt(0).toUpperCase();
+
+  // QR — always use the canonical production URL so the QR works everywhere
+  const qrUrl = `https://loflyapp.com/redirect.html?qr=${emp.qr_code_id}`;
+  document.getElementById('qrCodeId').textContent = emp.qr_code_id.substring(0, 12) + '...';
+  try {
+    const qrContainer = document.getElementById('qrCanvas');
+    qrContainer.innerHTML = '';
+    new QRCode(qrContainer, {
+      text: qrUrl,
+      width: 140,
+      height: 140,
+      colorDark: '#1a2335',
+      colorLight: '#ffffff',
+    });
+  } catch (qrErr) {
+    console.error('QR genereren mislukt:', qrErr);
+    document.getElementById('qrCanvas').insertAdjacentHTML('afterend',
+      `<div style="font-size:11px;color:#ef4444">QR fout: ${qrErr.message}</div>`);
+  }
+
+  // Apply date filter and render
+  applyDateFilter();
+}
+
+function applyDateFilter() {
+  const dateFrom = document.getElementById('dateFrom').value;
+  const dateTo = document.getElementById('dateTo').value;
+
+  // Filter reviews by date range — inclusief reviews als tweede medewerker
+  const combined = [...allReviews, ...allSecondReviews]
+    .filter((r, i, arr) => arr.findIndex(x => x.id === r.id) === i) // dedup
+    .sort((a, b) => a.review_date < b.review_date ? 1 : -1);
+
+  empReviews = combined.filter(r => {
+    if (!r.review_date) return false;
+    const d = r.review_date.substring(0, 10);
+    if (dateFrom && d < dateFrom) return false;
+    if (dateTo && d > dateTo) return false;
+    return true;
+  });
+
+  // Filter scans by date range
+  empScans = allScans.filter(s => {
+    if (!s.scanned_at) return false;
+    const d = s.scanned_at.substring(0, 10);
+    if (dateFrom && d < dateFrom) return false;
+    if (dateTo && d > dateTo) return false;
+    return true;
+  });
+
+  // Stats
+  const clicks = empScans.filter(s => s.button_clicked).length;
+  document.getElementById('statScans').textContent = empScans.length;
+  document.getElementById('statClicks').textContent = clicks;
+  document.getElementById('statConversion').textContent = empScans.length
+    ? Math.round((clicks / empScans.length) * 100) + '%' : '—';
+  document.getElementById('statReviews').textContent = empReviews.length;
+  const avg = empReviews.length
+    ? (empReviews.reduce((a, r) => a + r.star_rating, 0) / empReviews.length).toFixed(1) : '—';
+  document.getElementById('statAvg').textContent = avg !== '—' ? avg + ' ★' : '—';
+
+  // Charts and table
+  renderScansChart();
+  renderStarsChart();
+  renderReviewsTable();
+  if (isAdmin(profile)) renderProvisieSection(dateFrom, dateTo);
+}
+
+function renderScansChart() {
+  const weeks = [];
+  const now = new Date();
+  for (let i = 7; i >= 0; i--) {
+    const start = new Date(now);
+    start.setDate(now.getDate() - i * 7);
+    start.setHours(0,0,0,0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 7);
+    weeks.push({ label: `W${start.getDate()}/${start.getMonth()+1}`, start, end });
+  }
+  const counts = weeks.map(w =>
+    empScans.filter(s => {
+      const d = new Date(s.scanned_at);
+      return d >= w.start && d < w.end;
+    }).length
+  );
+
+  if (chartScansInstance) { chartScansInstance.destroy(); chartScansInstance = null; }
+  chartScansInstance = new Chart(document.getElementById('chartScans').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: weeks.map(w => w.label),
+      datasets: [{
+        label: 'Scans',
+        data: counts,
+        borderColor: '#F97316',
+        backgroundColor: 'rgba(249,115,22,.1)',
+        tension: .35,
+        fill: true,
+        pointBackgroundColor: '#F97316',
+        pointRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+}
+
+function renderStarsChart() {
+  const counts = [1,2,3,4,5].map(s => empReviews.filter(r => Math.round(parseFloat(r.star_rating)) === s).length);
+  if (chartStarsInstance) { chartStarsInstance.destroy(); chartStarsInstance = null; }
+  chartStarsInstance = new Chart(document.getElementById('chartStars').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: ['1★','2★','3★','4★','5★'],
+      datasets: [{
+        label: 'Reviews',
+        data: counts,
+        backgroundColor: ['#fee2e2','#fecaca','#fde68a','#bbf7d0','#6ee7b7'],
+        borderWidth: 0,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+}
+
+function getQrUrl() {
+  if (!emp) return null;
+  return `https://loflyapp.com/redirect.html?qr=${emp.qr_code_id}`;
+}
+
+function downloadQR() {
+  const canvas = document.querySelector('#qrCanvas canvas');
+  if (!canvas) { showToast('QR nog niet geladen', 'error'); return; }
+  const link = document.createElement('a');
+  link.download = `QR-${emp.name.replace(/\s+/g,'-')}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+async function copyQRUrl() {
+  const url = getQrUrl();
+  if (!url) return;
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('QR URL gekopieerd!');
+  } catch {
+    showToast('Kopiëren mislukt', 'error');
+  }
+}
+
+function renderReviewsTable() {
+  const tbody = document.getElementById('reviewsBody');
+  if (!empReviews.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:24px;color:#9ca3af;text-align:center">Geen gekoppelde reviews</td></tr>';
+    return;
+  }
+  tbody.innerHTML = empReviews.map(r => {
+    const hasText = !!(stripGoogleTranslation(r.review_text) || '').trim();
+    const rowId = `rev-expand-${r.id}`;
+    return `
+    <tr style="cursor:${hasText ? 'pointer' : 'default'}" onclick="${hasText ? `toggleReviewRow('${rowId}')` : ''}">
+      <td>${formatDate(r.review_date)}</td>
+      <td>${escHtml(r.reviewer_name || '—')}</td>
+      <td>${getSourceBadge(r.source)}</td>
+      <td>${renderStars(r.star_rating)}</td>
+      <td>${getStatusBadge(r.status)}</td>
+    </tr>
+    ${hasText ? `<tr id="${rowId}" style="display:none;background:#f8fafc">
+      <td colspan="5" style="padding:12px 16px 16px;font-size:13px;color:#374151;line-height:1.6;border-top:none">
+        <div style="border-left:3px solid var(--orange);padding-left:12px;font-style:italic">${escHtml(stripGoogleTranslation(r.review_text))}</div>
+      </td>
+    </tr>` : ''}`;
+  }).join('');
+}
+
+function toggleReviewRow(rowId) {
+  const row = document.getElementById(rowId);
+  if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+
+function renderProvisieSection(dateFrom, dateTo) {
+  const s = provisieSettings;
+  const basis    = s.bedrag_basis   ?? 15;
+  const drempel  = s.bedrag_drempel ?? 25;
+  const drempelN = s.drempel_count  ?? 5;
+
+  // Combineer primaire (splitFactor 1) en tweede-medewerker reviews (splitFactor 2)
+  const allCombined = [
+    ...allReviews.map(r => ({ ...r, splitFactor: r.second_employee_id ? 2 : 1 })),
+    ...allSecondReviews.map(r => ({ ...r, splitFactor: 2 })),
+  ];
+
+  // Filter: geplaatst + datumbereik + geselecteerde portals
+  const activePortals = s.portals || ['google', 'klantenvertellen'];
+  const inPeriod = allCombined.filter(r => {
+    if (r.status !== 'posted') return false;
+    if (!activePortals.includes(r.source)) return false;
+    const d = (r.review_date || '').substring(0, 10);
+    if (dateFrom && d < dateFrom) return false;
+    if (dateTo   && d > dateTo)   return false;
+    return true;
+  });
+
+  const positief = inPeriod.filter(r => r.star_rating >= 4);
+  const positiefCount = positief.length;
+  const heeftDrempel = positiefCount >= drempelN;
+  const bedragPerStuk = heeftDrempel ? drempel : basis;
+
+  // Groepeer per portal
+  const portalTotalen = {};
+  let reviewSubtotaal = 0;
+  positief.forEach(r => {
+    const portal = r.source || 'onbekend';
+    const raw = bedragPerStuk / r.splitFactor;
+    if (!portalTotalen[portal]) portalTotalen[portal] = { count: 0, totaal: 0 };
+    portalTotalen[portal].count += 1;
+    portalTotalen[portal].totaal += raw;
+    reviewSubtotaal += raw;
+  });
+
+  const portalRows = Object.entries(portalTotalen).map(([portal, data]) => `
+    <tr>
+      <td>${getSourceBadge(portal)}</td>
+      <td style="color:#6b7280">${data.count} review${data.count !== 1 ? 's' : ''}</td>
+      <td><span style="color:#16a34a;font-weight:600">+${formatEur(data.totaal)}</span></td>
+    </tr>`).join('');
+
+  // Terugrekening rij
+  let tabelVoetnoot = '';
+  if (heeftDrempel && basis !== drempel) {
+    tabelVoetnoot = `<tr style="background:#f0fdf4">
+      <td colspan="2" style="color:#15803d;font-size:12px;font-weight:600;padding:8px 16px">
+        ↑ Drempel van ${drempelN} positieve reviews gehaald — terugwerking toegepast
+      </td>
+      <td style="color:#15803d;font-weight:700;padding:8px 16px">+${formatEur((drempel - basis) * positiefCount)}</td>
+    </tr>`;
+  }
+
+  // Aftrekken in periode
+  const dedInPeriod = allDeductions.filter(d => {
+    if (dateFrom && d.deduction_date < dateFrom) return false;
+    if (dateTo   && d.deduction_date > dateTo)   return false;
+    return true;
+  });
+  let aftrekTotaal = 0;
+  const aftrekRows = dedInPeriod.map(d => {
+    aftrekTotaal += d.amount;
+    return `<tr style="background:#fef2f2">
+      <td colspan="2" style="color:#dc2626;font-size:12px">${escHtml(d.note || 'Aftrek')} <span style="color:#9ca3af;font-size:11px">(${formatDate(d.deduction_date)})</span></td>
+      <td style="color:#dc2626;font-weight:600">−${formatEur(d.amount)}</td>
+    </tr>`;
+  }).join('');
+
+  const totaal = reviewSubtotaal - aftrekTotaal;
+  const noData = positiefCount === 0 && dedInPeriod.length === 0;
+
+  const el = document.getElementById('provisieSection');
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="card" style="padding:0;overflow:hidden;margin-top:20px">
+      <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between">
+        <span class="card-title">Provisie</span>
+        <span style="font-size:18px;font-weight:800;color:var(--orange)">${formatEur(totaal)}</span>
+      </div>
+      ${noData ? `<div style="padding:24px;color:#9ca3af;text-align:center">Geen geplaatste reviews in deze periode</div>` : `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Portal</th><th>Reviews</th><th>Provisie</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${portalRows}
+            ${tabelVoetnoot}
+            ${aftrekRows}
+          </tbody>
+        </table>
+      </div>
+      ${aftrekTotaal > 0 ? `<div style="padding:10px 20px;text-align:right;font-size:13px;color:#6b7280;border-top:1px solid #e5e7eb">
+        Reviews: ${formatEur(reviewSubtotaal)} &nbsp;·&nbsp; Aftrek: <span style="color:#dc2626">−${formatEur(aftrekTotaal)}</span> &nbsp;·&nbsp; Totaal: <span style="color:var(--orange);font-weight:700">${formatEur(totaal)}</span>
+      </div>` : ''}`}
+    </div>`;
+}
+
+function formatEur(amount) {
+  return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(amount || 0);
+}
+</script>
+</body>
+</html>
