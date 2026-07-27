@@ -73,7 +73,7 @@
           </div>
           <div class="form-group">
             <label class="form-label">API Token</label>
-            <input class="form-control" id="kvApiToken" type="password" placeholder="API token">
+            <input class="form-control" id="kvApiToken" type="password" placeholder="API token" autocomplete="new-password" data-lpignore="true">
           </div>
           <button class="btn btn-primary" onclick="saveKVSettings()">Opslaan</button>
         </div>
@@ -178,7 +178,7 @@ let org = null;
   org = profile.organizations;
   document.getElementById('orgName').textContent = org?.name || '';
   document.getElementById('appLayout').style.display = 'flex';
-  document.getElementById('sidebarContainer').innerHTML = renderNav('settings');
+  document.getElementById('sidebarContainer').innerHTML = renderNav('settings', profile);
 
   // Admin ziet alleen Gebruikers + Uitnodigen tabs (niet Organisatie/Integraties)
   if (!isSysteembeheerder(profile)) {
@@ -207,7 +207,8 @@ function populateFields() {
   document.getElementById('kvTenantId').value = org.kv_tenant_id || '';
   // Het KV-token staat sinds 27-07-2026 in organization_secrets en is niet
   // leesbaar vanuit de browser. We vragen alleen of het gezet is.
-  getSupabase().rpc('org_has_kv_token').then(({ data }) => {
+  getSupabase().rpc('org_has_kv_token').then(({ data, error }) => {
+    if (error) { console.error('[lofly] org_has_kv_token mislukt:', error); return; }
     if (data) document.getElementById('kvApiToken').placeholder = '(opgeslagen)';
   });
 }
