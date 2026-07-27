@@ -205,8 +205,11 @@ function populateFields() {
   document.getElementById('orgGoogleUrl').value = org.google_review_url || '';
   document.getElementById('kvLocationId').value = org.kv_location_id || '';
   document.getElementById('kvTenantId').value = org.kv_tenant_id || '';
-  // Sensitive fields: only show placeholder if set
-  if (org.kv_api_token) document.getElementById('kvApiToken').placeholder = '(opgeslagen)';
+  // Het KV-token staat sinds 27-07-2026 in organization_secrets en is niet
+  // leesbaar vanuit de browser. We vragen alleen of het gezet is.
+  getSupabase().rpc('org_has_kv_token').then(({ data }) => {
+    if (data) document.getElementById('kvApiToken').placeholder = '(opgeslagen)';
+  });
 }
 
 // ============================================================
@@ -237,7 +240,14 @@ async function saveKVSettings() {
     kv_tenant_id: document.getElementById('kvTenantId').value.trim() || null,
   };
   const token = document.getElementById('kvApiToken').value.trim();
-  if (token) updates.kv_api_token = token;
+  if (token) {
+    // Gaat via een beveiligde functie naar de kluis (organization_secrets).
+    // Alleen een systeembeheerder mag dit; de waarde is nooit terug te lezen.
+    const { error: tokenError } = await getSupabase().rpc('set_org_kv_token', { p_token: token });
+    if (tokenError) { showToast('Token niet opgeslagen: ' + tokenError.message, 'error'); return; }
+    document.getElementById('kvApiToken').value = '';
+    document.getElementById('kvApiToken').placeholder = '(opgeslagen)';
+  }
   await saveOrgUpdate(updates);
 }
 
