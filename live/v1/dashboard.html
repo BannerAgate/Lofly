@@ -460,19 +460,26 @@ function openRapportage() {
     `;
   }).join('');
 
-  // Podium — rank by avg score, then by count; min 3 reviews to qualify
+  // Puntentelling: 5★ = 5 pts, 4★ = 4 pts, 3/2/1★ = 0 pts
+  function reviewPoints(star) {
+    if (star >= 5) return 5;
+    if (star >= 4) return 4;
+    return 0;
+  }
+
   const empStats = employees
     .map(e => {
       const linked = rv.filter(r => r.employee_id === e.id);
       const empAvg = linked.length ? linked.reduce((a,r)=>a+r.star_rating,0)/linked.length : 0;
-      return { name: e.name, count: linked.length, avg: empAvg };
+      const points = linked.reduce((a,r) => a + reviewPoints(r.star_rating), 0);
+      return { name: e.name, count: linked.length, avg: empAvg, points };
     })
     .filter(e => e.count > 0)
-    .sort((a,b) => b.avg - a.avg || b.count - a.count);
+    .sort((a,b) => b.points - a.points || b.avg - a.avg);
 
   const podiumEligible = empStats.filter(e => e.count >= 3);
   const top3 = podiumEligible.slice(0, 3);
-  // Rest = podium overflow + employees with <3 reviews (already sorted by avg desc)
+  // Rest — zelfde puntensortering
   const podiumNames = new Set(top3.map(e => e.name));
   const rest = empStats.filter(e => !podiumNames.has(e.name));
 
@@ -509,7 +516,7 @@ function openRapportage() {
         <span style="font-size:11px;color:#9ca3af;width:18px;text-align:center;flex-shrink:0">${i+4}</span>
         <span style="font-size:12px;color:#374151;font-weight:500;flex:1">${escHtml(e.name)}</span>
         <span style="font-size:11px;color:#6b7280">${e.count} review${e.count!==1?'s':''}</span>
-        <span style="font-size:11px;color:#F97316;font-weight:600;min-width:36px;text-align:right">${e.avg.toFixed(1)} ★</span>
+        <span style="font-size:11px;color:#F97316;font-weight:600;min-width:50px;text-align:right">${e.points} pnt</span>
       </div>
     `).join('');
     restWrap.style.display = 'block';
