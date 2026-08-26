@@ -233,6 +233,7 @@ let org = null;
     return;
   }
   org = profile.organizations;
+  window._currentOrgId = profile.organization_id;
   document.getElementById('orgName').textContent = org?.name || '';
   document.getElementById('appLayout').style.display = 'flex';
   document.getElementById('sidebarContainer').innerHTML = renderNav('settings', profile);
@@ -565,7 +566,17 @@ function rtKey(portal) {
 
 function loadRatingTrackerSettings() {
   ['google','klantenvertellen'].forEach(portal => {
-    const raw = localStorage.getItem(rtKey(portal));
+    let raw = localStorage.getItem(rtKey(portal));
+    // Migreer oude 'default' key naar org-specifieke key
+    if (!raw) {
+      const oldKey = 'lofly_rt2_default_' + portal;
+      const oldRaw = localStorage.getItem(oldKey);
+      if (oldRaw) {
+        localStorage.setItem(rtKey(portal), oldRaw);
+        localStorage.removeItem(oldKey);
+        raw = oldRaw;
+      }
+    }
     const prefix = portal === 'google' ? 'rtGoogle' : 'rtKv';
     if (!raw) return;
     const d = JSON.parse(raw);
