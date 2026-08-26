@@ -1,0 +1,234 @@
+// ============================================================
+// Lofly App — Supabase Configuration
+// ============================================================
+const SUPABASE_URL = 'https://tcxwwnbsihmxwbfckeje.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjeHd3bmJzaWhteHdiZmNrZWplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MzA4NDksImV4cCI6MjA5ODMwNjg0OX0.-Q6slj8fyyMBvV0OUUmgS8C2rurCKQIuEa3uBLEyS0Q';
+
+// Workers endpoint (update after deploying Cloudflare Workers)
+const WORKERS_BASE_URL = 'https://lofly-workers.YOUR_ACCOUNT.workers.dev';
+
+// App config
+const APP_VERSION = '1.0.0';
+
+// Initialize Supabase client (loaded from CDN in each HTML file)
+// We use skipAutoInitialize so we can explicitly await initialization before
+// calling getSession(). This prevents the race condition where getSession()
+// returns null because the client hasn't finished reading from localStorage yet.
+let _supabase = null;
+let _supabaseReady = null;
+
+function getSupabase() {
+  if (!_supabase) {
+    _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { skipAutoInitialize: true }
+    });
+    // initialize() reads localStorage and sets up the internal session.
+    // Store the promise so getCurrentUser() can await it.
+    _supabaseReady = _supabase.auth.initialize();
+  }
+  return _supabase;
+}
+
+// ============================================================
+// Auth helpers
+// ============================================================
+async function getCurrentUser() {
+  console.log('[lofly] getCurrentUser: start');
+  getSupabase();
+  console.log('[lofly] getCurrentUser: wacht op initialize()...');
+  await _supabaseReady;
+  console.log('[lofly] getCurrentUser: initialize() klaar');
+  const { data: { session }, error } = await getSupabase().auth.getSession();
+  console.log('[lofly] getCurrentUser: getSession resultaat =', session?.user?.email ?? 'null', error ? '| error: ' + error.message : '');
+  return session?.user ?? null;
+}
+
+async function getCurrentProfile() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  // Fetch profile first (no join — avoids potential RLS recursion)
+  const { data: profile, error: profileError } = await getSupabase()
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+
+  if (profileError || !profile) {
+    console.error('getCurrentProfile: profile fetch failed', profileError);
+    return null;
+  }
+
+  // Fetch org separately
+  const { data: org } = await getSupabase()
+    .from('organizations')
+    .select('*')
+    .eq('id', profile.organization_id)
+    .single();
+
+  return { ...profile, organizations: org || null };
+}
+
+async function requireAuth(redirectTo = '/') {
+  const user = await getCurrentUser();
+  if (!user) {
+    window.location.href = redirectTo;
+    return null;
+  }
+  return user;
+}
+
+async function signOut() {
+  await getSupabase().auth.signOut();
+  window.location.href = '/';
+}
+
+// ============================================================
+// Role helpers
+// Hiërarchie: systeembeheerder > admin > reviewer > readonly
+// ============================================================
+const ROLE_LEVEL = { systeembeheerder: 4, admin: 3, reviewer: 2, readonly: 1 };
+
+function roleAtLeast(profile, minRole) {
+  return (ROLE_LEVEL[profile?.role] || 0) >= (ROLE_LEVEL[minRole] || 0);
+}
+
+function isSysteembeheerder(profile) { return profile?.role === 'systeembeheerder'; }
+function isAdmin(profile)            { return roleAtLeast(profile, 'admin'); }
+function isReviewer(profile)         { return roleAtLeast(profile, 'reviewer'); }
+function isReadonly(profile)         { return roleAtLeast(profile, 'readonly'); }
+
+// ============================================================
+// Shared UI helpers
+// ============================================================
+function showToast(message, type = 'success') {
+  const existing = document.getElementById('lofly-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.id = 'lofly-toast';
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <span class="toast-icon">${type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}</span>
+    <span>${message}</span>
+  `;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.classList.add('show'), 10);
+  setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3500);
+}
+
+function stripGoogleTranslation(text) {
+  if (!text) return text;
+  const idx = text.indexOf('(Translated by Google)');
+  if (idx !== -1) return text.substring(0, idx).trim();
+  return text;
+}
+
+function escHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleDateString('nl-NL', {
+    day: 'numeric', month: 'short', year: 'numeric'
+  });
+}
+
+function formatDateTime(dateStr) {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleDateString('nl-NL', {
+    day: 'numeric', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+}
+
+function renderStars(rating) {
+  const n = parseFloat(rating) || 0;
+  return Array.from({ length: 5 }, (_, i) => {
+    if (i < Math.floor(n)) return `<span class="star star-filled">★</span>`;
+    if (i === Math.floor(n) && n % 1 >= 0.5) {
+      return `<span class="star star-half"><span class="star-half-bg">★</span><span class="star-half-fg">★</span></span>`;
+    }
+    return `<span class="star star-empty">★</span>`;
+  }).join('');
+}
+
+function getSourceBadge(source) {
+  if (source === 'google') return '<span class="badge badge-google">Google</span>';
+  if (source === 'klantenvertellen') return '<span class="badge badge-kv">Klantenvertellen</span>';
+  return `<span class="badge">${source}</span>`;
+}
+
+function getStatusBadge(status) {
+  const map = {
+    pending: ['badge-pending', 'Te behandelen'],
+    approved: ['badge-approved', 'Goedgekeurd'],
+    posted: ['badge-posted', 'Geplaatst'],
+    rejected: ['badge-rejected', 'Afgewezen']
+  };
+  const [cls, label] = map[status] || ['badge', status];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+// ============================================================
+// Navigation renderer
+// ============================================================
+function renderNav(activePage, profile) {
+  const pages = [
+    { id: 'reviews',   label: 'Reviews',    icon: '⭐', href: '/reviews' },
+    { id: 'dashboard', label: 'Dashboard',  icon: '📊', href: '/dashboard' },
+    { id: 'employees', label: 'Medewerkers',icon: '👤', href: '/employees' },
+  ];
+
+  // Provisie alleen zichtbaar voor admin en systeembeheerder
+  if (isAdmin(profile)) {
+    pages.push({ id: 'provisie', label: 'Provisie', icon: '💶', href: '/provisie' });
+  }
+
+  const navItems = pages.map(p => `
+    <a href="${p.href}" class="nav-item ${activePage === p.id ? 'active' : ''}">
+      <span class="nav-icon">${p.icon}</span>
+      <span class="nav-label">${p.label}</span>
+    </a>
+  `).join('');
+
+  const mobileItems = pages.map(p => `
+    <a href="${p.href}" class="mobile-nav-item ${activePage === p.id ? 'active' : ''}">
+      <span class="mobile-nav-icon">${p.icon}</span>
+      <span class="mobile-nav-label">${p.label}</span>
+    </a>
+  `).join('');
+
+  return `
+    <nav class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-mark"></div>
+        <span class="logo-text">Lofly</span>
+      </div>
+      <div class="nav-items">${navItems}</div>
+      <div class="nav-bottom">
+        <a href="/settings" class="nav-item ${activePage === 'settings' ? 'active' : ''}">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label">Instellingen</span>
+        </a>
+        <button class="nav-item nav-signout" onclick="signOut()">
+          <span class="nav-icon">↩</span>
+          <span class="nav-label">Uitloggen</span>
+        </button>
+      </div>
+    </nav>
+    <nav class="mobile-bottom-nav">
+      ${mobileItems}
+      <a href="/settings" class="mobile-nav-item ${activePage === 'settings' ? 'active' : ''}">
+        <span class="mobile-nav-icon">⚙️</span>
+        <span class="mobile-nav-label">Instellingen</span>
+      </a>
+    </nav>
+  `;
+}
