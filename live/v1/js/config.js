@@ -232,3 +232,27 @@ function renderNav(activePage, profile) {
     </nav>
   `;
 }
+
+// ============================================================
+// Auto-logout na 30 minuten inactiviteit
+// ============================================================
+(function() {
+  const TIMEOUT_MS = 30 * 60 * 1000; // 30 minuten
+  let _timer = null;
+
+  function resetTimer() {
+    clearTimeout(_timer);
+    _timer = setTimeout(async () => {
+      await getSupabase().auth.signOut();
+      window.location.href = '/';
+    }, TIMEOUT_MS);
+  }
+
+  // Start timer zodra pagina geladen is
+  if (typeof window !== 'undefined') {
+    ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(evt => {
+      window.addEventListener(evt, resetTimer, { passive: true });
+    });
+    resetTimer();
+  }
+})();
