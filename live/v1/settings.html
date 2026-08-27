@@ -238,6 +238,7 @@ let org = null;
   document.getElementById('appLayout').style.display = 'flex';
   document.getElementById('sidebarContainer').innerHTML = renderNav('settings', profile);
   loadDepartments(profile.organization_id);
+  loadRatingTrackerSettings();
 
   // Admin ziet alleen Gebruikers + Uitnodigen tabs (niet Organisatie/Integraties)
   if (!isSysteembeheerder(profile)) {
@@ -558,35 +559,22 @@ async function removeDepartment(idx) {
   showToast('Afdeling verwijderd');
 }
 
-// Rating tracker settings
-function rtKey(portal) {
-  const orgId = window._currentOrgId || 'default';
-  return 'lofly_rt2_' + orgId + '_' + portal;
-}
-
+// ============================================================
+// Rating tracker settings — opgeslagen in organizations.tracker_config
+// ============================================================
 function loadRatingTrackerSettings() {
+  const cfg = org?.tracker_config || {};
   ['google','klantenvertellen'].forEach(portal => {
-    let raw = localStorage.getItem(rtKey(portal));
-    // Migreer oude 'default' key naar org-specifieke key
-    if (!raw) {
-      const oldKey = 'lofly_rt2_default_' + portal;
-      const oldRaw = localStorage.getItem(oldKey);
-      if (oldRaw) {
-        localStorage.setItem(rtKey(portal), oldRaw);
-        localStorage.removeItem(oldKey);
-        raw = oldRaw;
-      }
-    }
+    const d = cfg[portal];
+    if (!d) return;
     const prefix = portal === 'google' ? 'rtGoogle' : 'rtKv';
-    if (!raw) return;
-    const d = JSON.parse(raw);
-    document.getElementById(prefix + 'Score').value = d.score;
-    document.getElementById(prefix + 'Count').value = d.count;
+    document.getElementById(prefix + 'Score').value = d.score ?? '';
+    document.getElementById(prefix + 'Count').value = d.count ?? '';
     if (d.startDate) document.getElementById(prefix + 'Date').value = d.startDate.substring(0,10);
   });
 }
 
-function saveRatingTracker(portal) {
+async function saveRatingTracker(portal) {
   const prefix = portal === 'google' ? 'rtGoogle' : 'rtKv';
   const maxScale = portal === 'google' ? 5 : 10;
   const score = parseFloat(document.getElementById(prefix + 'Score').value);
@@ -595,12 +583,18 @@ function saveRatingTracker(portal) {
   if (isNaN(score) || isNaN(count) || score < 1 || score > maxScale || count < 1 || !dateVal) {
     showToast('Vul score, reviewaantal en startdatum in', 'error'); return;
   }
-  const data = { score, count, startDate: dateVal, maxScale };
-  localStorage.setItem(rtKey(portal), JSON.stringify(data));
+  const current = org?.tracker_config || {};
+  const updated = { ...current, [portal]: { score, count, startDate: dateVal, maxScale } };
+  const { error } = await getSupabase()
+    .from('organizations')
+    .update({ tracker_config: updated })
+    .eq('id', profile.organization_id);
+  if (error) { showToast('Fout: ' + error.message, 'error'); return; }
+  // Refresh org in memory
+  profile = await getCurrentProfile();
+  org = profile.organizations;
   showToast('Tracker opgeslagen');
 }
-
-document.addEventListener('DOMContentLoaded', () => setTimeout(loadRatingTrackerSettings, 800));
 </script>
 </body>
 </html>

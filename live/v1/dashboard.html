@@ -308,7 +308,7 @@ async function loadDashboard() {
   renderEmployeeTable(emps || [], rv, sc);
 
   // Rating trackers — gebruik ALLE reviews (geen datumfilter van dashboard)
-  renderRatingTrackers(rv);
+  renderRatingTrackers(rv, profile.organizations?.tracker_config || {});
 }
 
 function renderWeeklyChart(reviews) {
@@ -583,11 +583,6 @@ function renderEmployeeTable(employees, reviews, scans) {
 // ============================================================
 // Rating Trackers (Google + KV)
 // ============================================================
-function rtKey(portal) {
-  const orgId = window._currentOrgId || 'default';
-  return 'lofly_rt2_' + orgId + '_' + portal;
-}
-
 function rtWidgetHtml(data, newReviews) {
   const { score, count, maxScale, startDate } = data;
   const BS = score * count;
@@ -636,14 +631,13 @@ function rtWidgetHtml(data, newReviews) {
     </div>`;
 }
 
-function renderRatingTrackers(allReviews) {
+function renderRatingTrackers(allReviews, trackerConfig) {
   ['google','klantenvertellen'].forEach(portal => {
     const bodyId = portal === 'google' ? 'rtGoogleBody' : 'rtKvBody';
     const bodyEl = document.getElementById(bodyId);
     if (!bodyEl) return;
-    const raw = localStorage.getItem(rtKey(portal));
-    if (!raw) return;
-    const data = JSON.parse(raw);
+    const data = trackerConfig?.[portal];
+    if (!data?.startDate) return;
     const startTs = new Date(data.startDate + 'T00:00:00');
     const newReviews = (allReviews || []).filter(r =>
       r.source === portal && new Date(r.created_at) > startTs
