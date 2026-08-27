@@ -304,9 +304,6 @@ async function loadDashboard() {
   // Store for rapportage
   rapportageData = { reviews: rv, scans: sc, employees: emps || [] };
 
-  // Employee table
-  renderEmployeeTable(emps || [], rv, sc);
-
   // Rating trackers — gebruik ALLE reviews (geen datumfilter van dashboard)
   renderRatingTrackers(rv, profile.organizations?.tracker_config || {});
 }
